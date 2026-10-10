@@ -1,0 +1,13 @@
+Village_ID,Village_Name,Gauge_ID,Population,Vulnerable_Population,Nearest_Shelter,Shelter_Capacity,Distance_to_Shelter_km,Road_Access_in_Floods,Preferred_Alert_Channel,Households_Without_Phone_pct
+V01,Rampura,G01,1850,520,Govt Primary School,300,1.2,All-weather,SMS,18
+V02,Keshavpur,G01,940,310,Community Hall,150,3.8,Seasonal,Loudspeaker,41
+V03,Lakshmipur,G02,2300,640,Higher Secondary School,450,0.9,All-weather,SMS,12
+V04,Dhanipur,G02,720,260,Panchayat Bhawan,120,4.5,Cut off in floods,Loudspeaker,52
+V05,Mahigaon,G03,3100,890,Govt College Ground Shelter,600,2.1,Seasonal,SMS,22
+V06,Barauli,G03,1280,430,Temple Community Hall,200,5.2,Cut off in floods,Loudspeaker,47
+V07,Taranagar,G04,1600,480,Govt Middle School,250,1.6,All-weather,SMS,20
+V08,Siddhpur,G04,860,290,Community Hall,100,3.3,Seasonal,WhatsApp group,35
+V09,Nilganj,G05,2050,610,Govt High School,350,1.1,All-weather,SMS,15
+V10,Fatehpur Kalan,G05,690,240,Anganwadi Centre,60,2.9,Seasonal,Loudspeaker,44
+V11,Chandanpur,G06,1420,450,Govt Primary School,220,2.4,Seasonal,SMS,27
+V12,Kharkhauda,G06,980,350,Panchayat Bhawan,110,6.0,Cut off in floods,Loudspeaker,56

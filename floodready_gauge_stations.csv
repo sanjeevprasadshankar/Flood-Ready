@@ -1,0 +1,7 @@
+Gauge_ID,Station_Name,Warning_Level_m,Danger_Level_m
+G01,Karnali Bend,3.8,4.5
+G02,Sundar Ghat,3.5,4.2
+G03,Mahi Crossing,4.3,5.0
+G04,Tara Barrage,3.9,4.6
+G05,Nila Mouth,3.2,3.9
+G06,Chandan Ford,3.7,4.4
