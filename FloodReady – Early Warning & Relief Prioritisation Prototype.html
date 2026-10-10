@@ -1,651 +1,389 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>FloodReady – Early Warning & Relief Prioritisation</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
-<style>
-:root{
-  --bg:#0b0f19;--surface:#131928;--card:#1a2235;--border:#243047;
-  --text:#e2e8f0;--muted:#7a8fa6;--accent:#3b82f6;--accent2:#6366f1;
-  --low:#22c55e;--moderate:#f59e0b;--high:#ef4444;--critical:#dc2626;
-  --bar-h:8px;--radius:12px;
-}
-*{box-sizing:border-box;margin:0;padding:0}
-body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;min-height:100vh}
+<div align="center">
 
-/* ── HEADER ── */
-.header{background:linear-gradient(135deg,#0f172a 0%,#1e293b 100%);border-bottom:1px solid var(--border);padding:16px 24px;display:flex;align-items:center;gap:14px;position:sticky;top:0;z-index:100}
-.logo{width:40px;height:40px;background:linear-gradient(135deg,var(--accent),var(--accent2));border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0}
-.header-title h1{font-size:1.2rem;font-weight:700;letter-spacing:.3px}
-.header-title p{font-size:.78rem;color:var(--muted);margin-top:1px}
-.header-right{margin-left:auto;display:flex;align-items:center;gap:10px}
-.live-dot{width:8px;height:8px;background:var(--low);border-radius:50%;animation:pulse 2s infinite}
-@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(1.4)}}
-.last-updated{font-size:.73rem;color:var(--muted)}
+<img src="https://readme-typing-svg.demolab.com/?font=Fira+Code&size=28&pause=1000&color=1E90FF&center=true&vCenter=true&width=600&lines=FloodReady;Early+Warning+%2B+Relief+Prioritisation;Built+for+Week+6+Datathon" alt="Typing SVG" />
 
-/* ── NAV TABS ── */
-.nav{display:flex;gap:4px;padding:16px 24px 0;border-bottom:1px solid var(--border);background:var(--surface)}
-.tab-btn{background:none;border:none;color:var(--muted);font-size:.85rem;font-weight:500;padding:10px 16px;cursor:pointer;border-bottom:2px solid transparent;transition:all .2s;border-radius:6px 6px 0 0}
-.tab-btn:hover{color:var(--text)}
-.tab-btn.active{color:var(--accent);border-bottom-color:var(--accent);background:rgba(59,130,246,.07)}
-
-/* ── LAYOUT ── */
-.tab-content{display:none;padding:24px;max-width:1400px;margin:0 auto}
-.tab-content.active{display:block}
-
-/* ── GRID ── */
-.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
-.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
-.grid6{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
-@media(max-width:900px){.grid2,.grid3,.grid6{grid-template-columns:1fr}}
-
-/* ── CARDS ── */
-.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px}
-.card-sm{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:14px}
-.card-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
-.card-title{font-size:.8rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
-.card-value{font-size:2rem;font-weight:700;line-height:1}
-.card-sub{font-size:.75rem;color:var(--muted);margin-top:4px}
-
-/* ── BADGE ── */
-.badge{display:inline-flex;align-items:center;gap:5px;font-size:.7rem;font-weight:700;padding:3px 10px;border-radius:20px;letter-spacing:.3px}
-.badge-low{background:rgba(34,197,94,.15);color:var(--low)}
-.badge-moderate{background:rgba(245,158,11,.15);color:var(--moderate)}
-.badge-high{background:rgba(239,68,68,.15);color:var(--high)}
-.badge-critical{background:rgba(220,38,38,.25);color:var(--critical)}
-
-/* ── PROGRESS BAR ── */
-.bar-wrap{background:#1e293b;border-radius:4px;height:var(--bar-h);overflow:hidden;margin-top:6px}
-.bar-fill{height:100%;border-radius:4px;transition:width .5s ease}
-.bar-low{background:var(--low)}
-.bar-moderate{background:var(--moderate)}
-.bar-high{background:var(--high)}
-.bar-critical{background:var(--critical)}
-
-/* ── GAUGE CARDS ── */
-.gauge-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:24px}
-@media(max-width:900px){.gauge-grid{grid-template-columns:1fr 1fr}}
-.gauge-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;cursor:pointer;transition:all .2s}
-.gauge-card:hover{border-color:var(--accent);transform:translateY(-2px)}
-.gauge-card.selected{border-color:var(--accent);background:rgba(59,130,246,.08)}
-.gauge-name{font-size:.9rem;font-weight:600;margin-bottom:2px}
-.gauge-id{font-size:.72rem;color:var(--muted)}
-.gauge-row{display:flex;justify-content:space-between;align-items:center;margin-top:10px;font-size:.8rem}
-.gauge-val{font-size:1.4rem;font-weight:700}
-
-/* ── VILLAGE TABLE ── */
-.vt-wrap{overflow-x:auto}
-table{width:100%;border-collapse:collapse;font-size:.8rem}
-th{background:#111827;color:var(--muted);font-weight:600;padding:10px 14px;text-align:left;font-size:.72rem;text-transform:uppercase;letter-spacing:.4px;border-bottom:1px solid var(--border);white-space:nowrap}
-td{padding:10px 14px;border-bottom:1px solid rgba(36,48,71,.5);vertical-align:middle}
-tr:hover td{background:rgba(59,130,246,.04)}
-.rank{font-weight:700;color:var(--muted);font-size:.9rem}
-.vname{font-weight:600}
-.score-cell{font-weight:700;font-size:.9rem}
-.road-cutoff{color:var(--high);font-weight:600}
-.road-seasonal{color:var(--moderate)}
-.road-all{color:var(--low)}
-
-/* ── ALERT PANEL ── */
-.alert-panel{display:none;border:1px solid var(--border);border-radius:var(--radius);margin-top:16px;overflow:hidden}
-.alert-panel.open{display:block}
-.alert-header{padding:14px 18px;display:flex;justify-content:space-between;align-items:center;cursor:pointer}
-.alert-header.lvl-critical{background:rgba(220,38,38,.12);border-left:4px solid var(--critical)}
-.alert-header.lvl-high{background:rgba(239,68,68,.1);border-left:4px solid var(--high)}
-.alert-header.lvl-moderate{background:rgba(245,158,11,.1);border-left:4px solid var(--moderate)}
-.alert-header.lvl-low{background:rgba(34,197,94,.08);border-left:4px solid var(--low)}
-.alert-body{padding:18px;background:rgba(0,0,0,.2)}
-.alert-section{margin-bottom:14px}
-.alert-section:last-child{margin-bottom:0}
-.alert-label{font-size:.7rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
-.alert-text{font-size:.85rem;line-height:1.6}
-.alert-action{background:rgba(59,130,246,.1);border:1px solid rgba(59,130,246,.2);border-radius:8px;padding:12px;font-size:.85rem;font-weight:500;line-height:1.5}
-.alert-deliver{font-size:.82rem;color:var(--muted)}
-
-/* ── CHART ── */
-.chart-area{height:280px;position:relative}
-.chart-tabs{display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap}
-.chart-tab{background:var(--surface);border:1px solid var(--border);color:var(--muted);font-size:.75rem;padding:5px 12px;border-radius:6px;cursor:pointer;transition:all .2s}
-.chart-tab:hover,.chart-tab.active{background:rgba(59,130,246,.12);border-color:var(--accent);color:var(--text)}
-
-/* ── METRICS ── */
-.metric-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
-@media(max-width:700px){.metric-grid{grid-template-columns:1fr 1fr}}
-.metric-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;text-align:center}
-.metric-num{font-size:2rem;font-weight:800;line-height:1}
-.metric-label{font-size:.72rem;color:var(--muted);margin-top:4px;text-transform:uppercase;letter-spacing:.4px}
-
-/* ── QUALITY TABLE ── */
-.q-table{width:100%;font-size:.82rem;border-collapse:collapse}
-.q-table td{padding:8px 12px;border-bottom:1px solid var(--border)}
-.q-table tr:last-child td{border-bottom:none}
-.q-fix{color:var(--low);font-weight:600}
-.q-flag{color:var(--moderate);font-weight:600}
-
-/* ── ARCHITECTURE ── */
-.arch-wrap{display:grid;grid-template-columns:1fr 1fr 1fr;gap:0;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
-@media(max-width:900px){.arch-wrap{grid-template-columns:1fr}}
-.arch-col{padding:20px;border-right:1px solid var(--border)}
-.arch-col:last-child{border-right:none}
-.arch-col-title{font-size:.72rem;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.6px;margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid var(--border)}
-.arch-item{display:flex;gap:10px;margin-bottom:12px;align-items:flex-start}
-.arch-icon{font-size:1.2rem;flex-shrink:0;margin-top:1px}
-.arch-item-title{font-size:.8rem;font-weight:600}
-.arch-item-desc{font-size:.74rem;color:var(--muted);margin-top:2px;line-height:1.4}
-.arch-arrow{text-align:center;padding:20px;color:var(--muted);font-size:1.5rem;display:flex;align-items:center;justify-content:center}
-
-/* ── SECTION TITLE ── */
-.section-title{font-size:1rem;font-weight:700;margin-bottom:16px;display:flex;align-items:center;gap:8px}
-.section-title::after{content:'';flex:1;height:1px;background:var(--border)}
-
-/* ── PRIORITY ROW ── */
-.rank-1 td:first-child::before{content:'🔴 '}
-.rank-2 td:first-child::before{content:'🟠 '}
-.rank-3 td:first-child::before{content:'🟡 '}
-
-/* ── CLOSE BTN ── */
-.close-btn{background:none;border:none;color:var(--muted);cursor:pointer;font-size:1rem;padding:4px}
-.close-btn:hover{color:var(--text)}
-
-/* ── SUMMARY BAND ── */
-.summary-band{background:linear-gradient(90deg,rgba(59,130,246,.12),rgba(99,102,241,.08));border:1px solid rgba(59,130,246,.25);border-radius:var(--radius);padding:16px 20px;margin-bottom:20px;display:flex;gap:24px;align-items:center;flex-wrap:wrap}
-.sb-item{display:flex;flex-direction:column;gap:2px}
-.sb-val{font-size:1.4rem;font-weight:700}
-.sb-label{font-size:.72rem;color:var(--muted)}
-
-/* ── RESPONSIBLE AI ── */
-.rai-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
-@media(max-width:700px){.rai-grid{grid-template-columns:1fr}}
-.rai-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:18px}
-.rai-icon{font-size:1.5rem;margin-bottom:8px}
-.rai-title{font-size:.85rem;font-weight:700;margin-bottom:6px}
-.rai-text{font-size:.8rem;color:var(--muted);line-height:1.6}
-</style>
-</head>
-<body>
-
-<div class="header">
-  <div class="logo">🌊</div>
-  <div class="header-title">
-    <h1>FloodReady</h1>
-    <p>District Early Warning & Relief Prioritisation System</p>
-  </div>
-  <div class="header-right">
-    <div class="live-dot"></div>
-    <span class="last-updated">Last reading: Aug 29, 2026</span>
-  </div>
-</div>
-
-<div class="nav">
-  <button class="tab-btn active" onclick="showTab('dashboard')">📊 Dashboard</button>
-  <button class="tab-btn" onclick="showTab('villages')">🏘️ Village Alerts</button>
-  <button class="tab-btn" onclick="showTab('gauges')">📡 Gauge History</button>
-  <button class="tab-btn" onclick="showTab('model')">🧠 Model & Data Quality</button>
-  <button class="tab-btn" onclick="showTab('architecture')">🏗️ Architecture</button>
-  <button class="tab-btn" onclick="showTab('responsible')">⚖️ Responsible AI</button>
-</div>
-
-<!-- ══════════════════════════════ DASHBOARD ══════════════════════════════ -->
-<div id="tab-dashboard" class="tab-content active">
-
-  <div class="summary-band">
-    <div class="sb-item"><span class="sb-val" id="sb-gauges-active">0</span><span class="sb-label">Gauges Active</span></div>
-    <div class="sb-item"><span class="sb-val" id="sb-at-risk">0</span><span class="sb-label">Villages Flagged</span></div>
-    <div class="sb-item"><span class="sb-val" id="sb-pop-risk">0</span><span class="sb-label">People at Risk</span></div>
-    <div class="sb-item"><span class="sb-val" id="sb-max-risk">—</span><span class="sb-label">Highest Gauge Risk</span></div>
-    <div style="margin-left:auto"><span class="badge badge-low" id="sb-status">ALL CLEAR</span></div>
-  </div>
-
-  <div class="section-title">📡 Gauge Status — Latest Readings</div>
-  <div class="gauge-grid" id="gauge-grid"></div>
-
-  <div class="section-title">🏘️ Top Priority Villages</div>
-  <div id="top-village-cards"></div>
+![Python](https://img.shields.io/badge/python-3.8%2B-blue?logo=python&logoColor=white)
+![Status](https://img.shields.io/badge/status-prototype-orange)
+![Recall](https://img.shields.io/badge/recall-86%25-brightgreen)
+![License](https://img.shields.io/badge/built%20for-datathon-9cf)
 
 </div>
 
-<!-- ══════════════════════════════ VILLAGES ══════════════════════════════ -->
-<div id="tab-villages" class="tab-content">
-  <div class="section-title">🏘️ All Villages — Priority Ranked</div>
-  <div class="vt-wrap">
-    <table id="village-table">
-      <thead>
-        <tr>
-          <th>#</th><th>Village</th><th>Gauge</th>
-          <th>Risk Score</th><th>Priority Score</th><th>Combined</th>
-          <th>Population</th><th>Vulnerable</th>
-          <th>Shelter Gap</th><th>Road Access</th>
-          <th>Channel</th><th>Alert Level</th><th>Action</th>
-        </tr>
-      </thead>
-      <tbody id="village-tbody"></tbody>
-    </table>
-  </div>
-  <div id="alert-detail" class="alert-panel"></div>
+---
+
+### Why this exists
+
+I kept thinking about the same problem: by the time flood warnings reach a village with cut-off roads and no phone coverage, it's often too late to do anything useful with them. So for the Week 6 mini challenge I built FloodReady — a small end-to-end pipeline that watches river gauges, works out which villages are actually at risk (not just which gauges are), and gets a real SMS/WhatsApp/email out the door before things get bad.
+
+It's a dress rehearsal, not a finished product — but every piece of it actually runs, end to end, on real (synthetic but realistic) data.
+
+In short, it:
+
+1. Scores flood risk at each of 6 river gauges using a 5-signal model
+2. Ranks all 12 villages by a mix of flood risk *and* vulnerability
+3. Writes plain-language alerts that tell people exactly what to do
+4. Actually sends **SMS**, **WhatsApp**, and **Email** — not a mockup, real delivery
+
+---
+
+## 📁 What's in here
+
+| File | What it does |
+|------|-------------|
+| `floodready_setup.py` | The whole system, one file. This is what you run. |
+| `floodready_prototype.html` | Dashboard — just open it in a browser |
+| `floodready_village_profiles.csv` | Population, shelter capacity, road access per village |
+| `floodready_gauge_stations.csv` | Warning/danger thresholds for each gauge |
+| `floodready_river_readings.csv` | 60 days of sensor readings across the 6 gauges |
+| `logs/floodready_alerts.log` | Gets created automatically — every alert run is logged here |
+| `floodready_last_run.json` | Also auto-created — a snapshot of the most recent run |
+
+---
+
+## 🚀 Getting it running (~5 min)
+
+### 1. Check Python
+
+```bash
+python --version
+```
+Anything 3.8+ works. If you're missing it, nothing else here will matter much — go grab it first.
+
+### 2. Install the dependencies
+
+```bash
+python floodready_setup.py install
+```
+This pulls in `twilio`, `sendgrid`, `pandas`, and `numpy`. Nothing exotic.
+
+### 3. Grab free API keys
+
+```bash
+python floodready_setup.py config
+```
+That'll print the signup links, but here's the gist:
+
+**Twilio** (SMS + WhatsApp) — [twilio.com](https://twilio.com)
+- Sign up, verify your phone, open the Console
+- Grab your Account SID, Auth Token, and Twilio number
+- Want WhatsApp too? Enable the sandbox at `twilio.com/console/sms/whatsapp/sandbox`
+
+**SendGrid** (Email) — [sendgrid.com](https://sendgrid.com)
+- Sign up → Settings → API Keys → Create Key (Full Access)
+- Copy the key right away, it's only shown once
+- Verify your sender email under Sender Authentication, or your emails will bounce
+
+### 4. Fill in your config
+
+Open `floodready_setup.py`, scroll to the `CONFIG` block at the top, and drop your keys in:
+
+```python
+CONFIG = {
+    "TWILIO_SID":        "ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+    "TWILIO_TOKEN":      "your_auth_token_here",
+    "TWILIO_FROM_SMS":   "+1234567890",
+    "TWILIO_FROM_WA":    "whatsapp:+14155238886",
+    "SENDGRID_KEY":      "SG.xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+    "EMAIL_FROM":        "floodready@yourdomain.com",
+    "OFFICER_EMAIL":     "officer@district.gov",
+    "OFFICER_PHONE":     "+919876543200",
+    "TEST_PHONE":        "+91XXXXXXXXXX",   # ← your number
+    "TEST_EMAIL":        "you@gmail.com",   # ← your email
+}
+```
+
+While you're there, update `CONTACTS` with real numbers for village leaders V01–V12.
+
+### 5. Send yourself a test
+
+```bash
+python floodready_setup.py test
+```
+One SMS, one email, both to you. If they land, you're good to go.
+
+### 6. Run it for real
+
+```bash
+# Dry run — shows you what WOULD go out, sends nothing
+python floodready_setup.py run
+
+# Live run — actually dispatches SMS + email
+python floodready_setup.py run --send
+```
+
+### 7. Look at the dashboard
+
+```bash
+python floodready_setup.py dashboard
+```
+Or honestly, just double-click `floodready_prototype.html`.
+
+### 8. Set it to run on its own
+
+```bash
+python floodready_setup.py schedule
+```
+Prints the crontab line (Linux/Mac) or Task Scheduler steps (Windows) to run this every 30 minutes without you touching it.
+
+---
+
+## 🧭 All commands at a glance
+
+```
+python floodready_setup.py install      Install required packages
+python floodready_setup.py config       Setup instructions for API keys
+python floodready_setup.py run          Dry run — prints alerts, sends nothing
+python floodready_setup.py run --send   Live run — sends SMS, WhatsApp, email
+python floodready_setup.py test         Test send to your own phone + email
+python floodready_setup.py schedule     How to auto-run every 30 minutes
+python floodready_setup.py dashboard    Open HTML dashboard in browser
+python floodready_setup.py refresh      Recompute from CSV files
+python floodready_setup.py status       Check packages, keys, last run
+```
+
+---
+
+## 🔍 How it actually works
+
+<details>
+<summary><b>Data pipeline (click to expand)</b></summary>
+
+```
+3 CSV files
+    │
+    ▼
+Data Quality Fixes
+  • 3 duplicate rows removed
+  • River level 99.9m (sensor fault) → interpolated
+  • Soil moisture 140% (impossible) → interpolated
+  • Negative rainfall → set to 0
+  • 6 missing rainfall values → filled with median
+  • 3 missing river levels → interpolated
+    │
+    ▼
+Feature Engineering
+  • Level % of danger threshold
+  • River rise rate (1-day diff)
+  • Upstream level rise (leading indicator, ~1 day lag)
+  • 3-day cumulative rainfall
+  • Soil moisture saturation
+    │
+    ▼
+Risk Scoring (0–100)
+    │
+    ▼
+Village Prioritisation
+    │
+    ▼
+Alert Generation + Delivery
+```
+
+The raw sensor data wasn't clean going in — 8 separate issues needed fixing before any of this was trustworthy. That cleanup step isn't an afterthought; it's half the reason the risk scores are usable at all.
+
+</details>
+
+### Risk score — how a gauge goes from "readings" to "danger"
+
+Five signals, weighted like this:
+
+| Signal | Weight | Why it matters |
+|--------|--------|-----------|
+| River level % of danger threshold | 40% | The most direct signal — how close are we, right now |
+| River rise rate (m/day) | 20% | Speed matters as much as position |
+| Upstream level rise | 20% | A leading indicator — shows up roughly a day before the local gauge reacts |
+| 3-day cumulative rainfall | 10% | Captures sustained input into the basin |
+| Soil moisture % | 10% | Saturated ground stops absorbing, so runoff spikes |
+
+A score of **45 or above** flags a predicted flood. That threshold wasn't arbitrary — it's tuned deliberately (more on why below).
+
+### Village priority — not just "who's flooding," but "who's most at risk"
+
+```
+Population + 2× vulnerable (elderly, children, disabled)  → up to 35 pts
+Shelter capacity gap (population − shelter capacity)       → up to 25 pts
+Road access: cut off = 30, seasonal = 15, all-weather = 0
+Households without a phone (%)                             → up to 10 pts
+```
+
+**Final score = 60% flood risk + 40% priority.**
+
+The effect of this: a village with cut-off roads and spotty phone coverage climbs the list even when its raw flood risk number looks about the same as a better-connected village down the road. That's intentional — those are exactly the villages that are hardest to reach once things go wrong.
+
+### Alert levels
+
+| Level | Score | What it means |
+|-------|-----------|--------|
+| 🔴 CRITICAL | ≥ 70 | Evacuate now — 12–24 hour window |
+| 🟠 HIGH | 45–69 | Start evacuating — 24–48 hours |
+| 🟡 MODERATE | 25–44 | Warn people, get ready |
+| 🟢 LOW | < 25 | Keep watching, no action yet |
+
+---
+
+## 📊 How well does it actually work?
+
+Tested on a held-out window (Aug 10–29, 2026), split by time so there's no leakage:
+
+| Metric | Value | What that means |
+|--------|-------|-------|
+| Recall | **86%** | Caught 6 out of 7 real floods |
+| Precision | 35% | About 3 false alarms per real flood |
+| F1 | 0.50 | — |
+| Missed floods | 1 | — |
+| Threshold | 45 | Deliberately tuned toward recall, not precision |
+
+**Why lean into false alarms instead of avoiding them?** Because missing a real flood can cost lives, and a false alarm just costs someone's time. The duty officer reviews every single alert before anything goes out — that human in the loop is what makes it safe to accept more false positives.
+
+---
+
+## 📨 Who gets what, and when
+
+| Channel | Goes to | Condition |
+|---------|-------------|------|
+| SMS | Village leader | Sent whenever a phone number is on file |
+| WhatsApp | Village group | Only if that's the village's preferred channel |
+| Email | Village leader | If an email address exists |
+| SMS | District officer | A rolled-up digest of every flagged village |
+| Email | District officer | Full HTML report, all the detail |
+
+One more thing: villages where 40%+ of households don't have a phone get a loudspeaker flag baked right into the alert, so the officer knows to send someone with a PA system instead of just relying on texts.
+
+---
+
+## 💸 What this costs
+
+Nothing, while you're building and testing.
+
+| Service | Free tier | Real-world cost |
+|---------|-----------|-------------------|
+| Twilio SMS | ~15 trial messages | ~₹0.65/SMS in India |
+| Twilio WhatsApp | Free sandbox | ~₹0.50–1/message |
+| SendGrid | 100 emails/day, forever | Free, for this volume |
+| Python + cron | Free | Free |
+
+For 12 villages sending 2 alerts a day, production would run **under ₹50/month**. Genuinely cheap for what it does.
+
+---
+
+## 🗂️ Inside `floodready_setup.py`
+
+It's one file, but it's organized into 13 sections so you're never hunting around:
+
+```
+0   CONFIG block — your API keys and settings
+1   INSTALLER — pip installs everything
+2   CONFIG WIZARD — setup walkthrough
+3   SMS / WhatsApp / Email senders
+4   Message builders (SMS text + HTML email)
+5   Logging — writes to logs/floodready_alerts.log
+6   Main pipeline — the full run() function
+7   Test sender
+8   Scheduler — runs every N minutes
+9   CSV refresh — recomputes live data
+10  Dashboard launcher
+11  Cron setup instructions (Linux/Mac/Windows)
+12  Status checker
+13  CLI entry point
+```
+
+---
+
+## 🤝 A few things I was careful about
+
+**Missed floods vs. false alarms** — I set the threshold at 45 specifically to push recall up to 86%, and backed that with a hard rule: nothing goes out without the duty officer reviewing it first. No SMS fires on its own.
+
+**Fairness in who gets prioritized** — Villages with bad roads and low phone coverage score *higher*, not lower. A 720-person village where half the households have no phone and the roads flood out will outrank a bigger village that's easy to reach. That's by design, not an accident of the math.
+
+**Privacy** — Village-level data (population breakdowns, shelter numbers) never leaves the local environment. The only thing that goes to a third party is the alert text itself, sent through Twilio/SendGrid to actually deliver it.
+
+**What happens when something breaks** — If a sensor fails or the script errors out, it gets logged, and the officer isn't left in the dark. The last-run JSON records exactly what happened, every time.
+
+**No black box** — Every alert spells out, in plain language, what's happening, why this village made the list, and what to actually do about it.
+
+---
+
+## 🛠️ If something's not working
+
+<details>
+<summary><code>ModuleNotFoundError: No module named 'twilio'</code></summary>
+
+```bash
+python floodready_setup.py install
+```
+</details>
+
+<details>
+<summary>SMS isn't arriving</summary>
+
+- Double-check `TWILIO_SID` and `TWILIO_TOKEN` — no stray spaces
+- On a trial account you can only text *verified* numbers — verify the recipient at `twilio.com/console/phone-numbers/verified`
+- Make sure `TWILIO_FROM_SMS` is your real Twilio number, country code included
+</details>
+
+<details>
+<summary>Email isn't arriving</summary>
+
+- Check spam first, always
+- `EMAIL_FROM` needs to be verified in SendGrid under Sender Authentication
+- `SENDGRID_KEY` should start with `SG.` — if it doesn't, just regenerate it
+</details>
+
+<details>
+<summary>WhatsApp isn't working</summary>
+
+- You need to join the Twilio sandbox first — text `join <your-sandbox-word>` to `+14155238886` from the recipient's phone
+- `TWILIO_FROM_WA` needs the `whatsapp:` prefix, e.g. `whatsapp:+14155238886`
+</details>
+
+<details>
+<summary><code>python</code> not recognized on Windows</summary>
+
+```bash
+py floodready_setup.py install
+# or
+python3 floodready_setup.py install
+```
+</details>
+
+<details>
+<summary>CSVs not found during <code>refresh</code></summary>
+
+- Keep all 3 CSVs in the same folder as `floodready_setup.py`
+- Worst case, `run` still works off the embedded data by default
+</details>
+
+---
+
+## 🧰 Built with
+
+- **Python 3.8+**
+- **pandas + numpy** for the data and scoring work
+- **Twilio** for SMS/WhatsApp
+- **SendGrid** for email
+- **Chart.js** for the gauge history charts in the dashboard
+- **Plain HTML/CSS/JS** for the dashboard — no framework, no build step, just open it
+
+---
+
+## ✅ Submission checklist
+
+- [x] Working prototype (`floodready_setup.py` + `floodready_prototype.html`)
+- [x] Full pipeline: raw data → risk score → ranked villages → real alerts
+- [x] Precision/recall reported (35% / 86%)
+- [x] 8 data quality issues found and fixed
+- [x] Village prioritisation across 4 factors
+- [x] Plain-language, explainable alerts
+- [x] Right channel per village's preference
+- [x] Architecture diagram in the dashboard
+- [x] Responsible AI reflection
+- [x] This README
+
+---
+
+<div align="center">
+
+*FloodReady — Week 6 Mini Challenge, built in dress-rehearsal mode by **Davidcharles** ([@thedhanushkiran](https://github.com/thedhanushkiran))*
+
+![Made with](https://img.shields.io/badge/made%20with-☕%20and%20late%20nights-blueviolet)
+
 </div>
-
-<!-- ══════════════════════════════ GAUGES HISTORY ══════════════════════════════ -->
-<div id="tab-gauges" class="tab-content">
-  <div class="section-title">📡 60-Day River Level History</div>
-  <div class="gauge-grid" id="gauge-selector" style="margin-bottom:20px"></div>
-  <div class="card">
-    <div class="chart-tabs" id="chart-type-tabs">
-      <button class="chart-tab active" onclick="setChartType('level',this)">River Level</button>
-      <button class="chart-tab" onclick="setChartType('rainfall',this)">Rainfall (mm)</button>
-      <button class="chart-tab" onclick="setChartType('risk',this)">Risk Score</button>
-    </div>
-    <div class="chart-area"><canvas id="history-chart"></canvas></div>
-  </div>
-</div>
-
-<!-- ══════════════════════════════ MODEL ══════════════════════════════ -->
-<div id="tab-model" class="tab-content">
-
-  <div class="section-title">🧠 Model Performance (Test Set: Aug 10–29)</div>
-  <div class="metric-grid" id="metric-grid"></div>
-
-  <div style="height:20px"></div>
-
-  <div class="grid2">
-    <div class="card">
-      <div class="card-header"><span class="card-title">Prediction Approach</span></div>
-      <div style="font-size:.84rem;line-height:1.8;color:var(--muted)">
-        <b style="color:var(--text)">Method:</b> Weighted multi-signal risk score (rule-based, no black box)<br>
-        <b style="color:var(--text)">Features used:</b><br>
-        &nbsp;&nbsp;• River Level % of Danger (40 pts) — proximity to danger threshold<br>
-        &nbsp;&nbsp;• River Rise Rate 1-day (20 pts) — how fast the river is rising<br>
-        &nbsp;&nbsp;• Upstream Level Rise (20 pts) — leading indicator (~1 day lag)<br>
-        &nbsp;&nbsp;• 3-day Cumulative Rainfall (10 pts) — sustained moisture input<br>
-        &nbsp;&nbsp;• Soil Moisture % (10 pts) — saturation reduces absorption<br><br>
-        <b style="color:var(--text)">Threshold:</b> Score ≥ 45 → Flood Predicted<br>
-        <b style="color:var(--text)">Split:</b> Train Jul 1–Aug 9 | Test Aug 10–29<br>
-        <b style="color:var(--text)">Key insight:</b> Recall (86%) is prioritised over Precision (35%) because a missed flood costs lives; false alarms can be filtered by the duty officer.
-      </div>
-    </div>
-    <div class="card">
-      <div class="card-header"><span class="card-title">Data Quality Issues Found</span></div>
-      <table class="q-table" id="quality-table"></table>
-    </div>
-  </div>
-
-  <div style="height:20px"></div>
-  <div class="card">
-    <div class="card-header"><span class="card-title">Village Prioritisation Formula</span></div>
-    <div style="font-size:.84rem;line-height:1.8;color:var(--muted)">
-      <b style="color:var(--text)">Combined Score = 0.60 × Risk Score + 0.40 × Priority Score</b><br><br>
-      Priority Score is built from:<br>
-      &nbsp;&nbsp;• Population + 2× Vulnerable (max 35 pts) — who needs help<br>
-      &nbsp;&nbsp;• Shelter capacity gap (max 25 pts) — whether shelter can absorb everyone<br>
-      &nbsp;&nbsp;• Road access: Cut off = 30 pts, Seasonal = 15 pts, All-weather = 0 pts<br>
-      &nbsp;&nbsp;• Phone coverage gap (max 10 pts) — alertability<br><br>
-      This ensures cut-off villages with high vulnerable populations rise to the top even if the raw flood risk is equal.
-    </div>
-  </div>
-</div>
-
-<!-- ══════════════════════════════ ARCHITECTURE ══════════════════════════════ -->
-<div id="tab-architecture" class="tab-content">
-  <div class="section-title">🏗️ System Architecture — Production Design</div>
-
-  <div class="arch-wrap" style="margin-bottom:20px">
-    <div class="arch-col">
-      <div class="arch-col-title">📥 Ingest & Store</div>
-      <div class="arch-item"><span class="arch-icon">📡</span><div><div class="arch-item-title">IoT Gauge Sensors</div><div class="arch-item-desc">RS-485 / LoRaWAN sensors push readings every 15 min to MQTT broker</div></div></div>
-      <div class="arch-item"><span class="arch-icon">🌧️</span><div><div class="arch-item-title">Rainfall API Feed</div><div class="arch-item-desc">IMD / OpenWeather ingested hourly via REST; upstream level from API</div></div></div>
-      <div class="arch-item"><span class="arch-icon">🗄️</span><div><div class="arch-item-title">Time-Series DB</div><div class="arch-item-desc">InfluxDB for sensor streams; PostgreSQL for village & shelter registry</div></div></div>
-      <div class="arch-item"><span class="arch-icon">🔄</span><div><div class="arch-item-title">Data Quality Pipeline</div><div class="arch-item-desc">Apache Airflow DAG: outlier clamp, interpolation, duplicate drop — runs every 30 min</div></div></div>
-    </div>
-    <div class="arch-col">
-      <div class="arch-col-title">⚙️ Process & Predict</div>
-      <div class="arch-item"><span class="arch-icon">🧮</span><div><div class="arch-item-title">Feature Engine</div><div class="arch-item-desc">Computes rolling stats (3-day rain, rise rate, upstream lag) on each new reading batch</div></div></div>
-      <div class="arch-item"><span class="arch-icon">🤖</span><div><div class="arch-item-title">Risk Scoring Model</div><div class="arch-item-desc">Weighted rule model (explainable, auditable). Retrained monthly with new labelled data. Runs every 30 min</div></div></div>
-      <div class="arch-item"><span class="arch-icon">🗺️</span><div><div class="arch-item-title">Village Prioritiser</div><div class="arch-item-desc">Joins gauge risk with village vulnerability index; outputs ranked list per alert trigger</div></div></div>
-      <div class="arch-item"><span class="arch-icon">📊</span><div><div class="arch-item-title">Alert Engine</div><div class="arch-item-desc">Generates plain-language alerts in 3 languages; selects delivery channel per village preference</div></div></div>
-    </div>
-    <div class="arch-col">
-      <div class="arch-col-title">📤 Deliver & Oversee</div>
-      <div class="arch-item"><span class="arch-icon">👮</span><div><div class="arch-item-title">Officer Dashboard</div><div class="arch-item-desc">District officer reviews ranked alert list before any alert is dispatched (human-in-the-loop gate)</div></div></div>
-      <div class="arch-item"><span class="arch-icon">📱</span><div><div class="arch-item-title">SMS / WhatsApp</div><div class="arch-item-desc">Twilio / Gupshup gateway; phone-coverage fallback routes to loudspeaker coordinator</div></div></div>
-      <div class="arch-item"><span class="arch-icon">📢</span><div><div class="arch-item-title">Loudspeaker Network</div><div class="arch-item-desc">Panchayat coordinator receives WhatsApp + voice call to activate village PA system</div></div></div>
-      <div class="arch-item"><span class="arch-icon">🔒</span><div><div class="arch-item-title">Security & Privacy</div><div class="arch-item-desc">Village vulnerability data: role-based access, AES-256 at rest, TLS in transit. Officers only see aggregates</div></div></div>
-    </div>
-  </div>
-
-  <div class="card">
-    <div class="card-header"><span class="card-title">Scalability & Reliability</span></div>
-    <div class="grid3" style="gap:14px;margin-top:4px">
-      <div class="card-sm"><div style="font-size:1.3rem;margin-bottom:6px">⚡</div><div style="font-size:.8rem;font-weight:600;margin-bottom:4px">Scale to 600 Gauges</div><div style="font-size:.75rem;color:var(--muted)">Horizontally scalable MQTT broker (EMQX) + InfluxDB cluster. Alert engine runs as stateless Lambda-style workers.</div></div>
-      <div class="card-sm"><div style="font-size:1.3rem;margin-bottom:6px">📴</div><div style="font-size:.8rem;font-weight:600;margin-bottom:4px">Sensor Failure Fallback</div><div style="font-size:.75rem;color:var(--muted)">If a reading is missing for &gt;2h, dashboard shows ⚠️ SENSOR OFFLINE. Last known value shown with staleness flag. Officer is paged.</div></div>
-      <div class="card-sm"><div style="font-size:1.3rem;margin-bottom:6px">🔋</div><div style="font-size:.8rem;font-weight:600;margin-bottom:4px">Network Outage</div><div style="font-size:.75rem;color:var(--muted)">Edge nodes store 24h of readings locally; sync when connectivity restores. SMS alerts use low-bandwidth USSD fallback.</div></div>
-    </div>
-  </div>
-</div>
-
-<!-- ══════════════════════════════ RESPONSIBLE AI ══════════════════════════════ -->
-<div id="tab-responsible" class="tab-content">
-  <div class="section-title">⚖️ Responsible AI Commitments</div>
-  <div class="rai-grid">
-    <div class="rai-card">
-      <div class="rai-icon">🎯</div>
-      <div class="rai-title">Missed Floods vs False Alarms</div>
-      <div class="rai-text">We set our threshold at 45 (not 60+) to maximise recall (86%). A missed flood can cost lives; a false alarm causes inconvenience. We accept ~3 false alarms per true flood on the test set. The duty officer reviews every alert before dispatch — their judgment is the final filter. Alert fatigue is mitigated by explaining each trigger in plain language.</div>
-    </div>
-    <div class="rai-card">
-      <div class="rai-icon">🤝</div>
-      <div class="rai-title">Equity of Reach</div>
-      <div class="rai-text">Our priority formula explicitly rewards villages with high phone-less household rates and cut-off roads. A village of 720 with 52% no-phone access and flooded roads scores higher than a larger village with all-weather roads and full phone coverage. Loudspeaker deployment is flagged as mandatory for any village above 40% no-phone threshold.</div>
-    </div>
-    <div class="rai-card">
-      <div class="rai-icon">🔒</div>
-      <div class="rai-title">Data Privacy</div>
-      <div class="rai-text">Village vulnerability data (population breakdowns, shelter capacity) is sensitive. Access is role-gated: field officers see only their assigned villages; district officers see aggregated metrics. Data is encrypted at rest (AES-256) and in transit (TLS 1.3). No personal/household-level data is stored — only village aggregates.</div>
-    </div>
-    <div class="rai-card">
-      <div class="rai-icon">👮</div>
-      <div class="rai-title">Human Oversight & Fallback</div>
-      <div class="rai-text">No alert is dispatched without officer approval — the system recommends, humans decide. If the data feed fails for &gt;2h, the dashboard shows a SENSOR OFFLINE banner and pages the on-call officer. If the model output looks anomalous (score &gt;90 with no rainfall), a "Review Recommended" flag is shown. Manual override is always available.</div>
-    </div>
-    <div class="rai-card">
-      <div class="rai-icon">📖</div>
-      <div class="rai-title">Explainability</div>
-      <div class="rai-text">Every risk score is decomposed into its five components (level %, rise rate, upstream, rainfall, soil). Every village priority score shows the three dominant factors. Officers can trace exactly why a village is ranked first — no opaque black box. This builds trust and supports accountability.</div>
-    </div>
-    <div class="rai-card">
-      <div class="rai-icon">🔄</div>
-      <div class="rai-title">Model Drift & Feedback</div>
-      <div class="rai-text">Ground-truth flood labels are collected after each event. The model is re-evaluated monthly. If recall drops below 80%, thresholds are adjusted and officers are notified. Community feedback (did the alert arrive in time? was it in the right language?) is collected after each event to improve the delivery pipeline.</div>
-    </div>
-  </div>
-</div>
-
-<script>
-// ── DATA ─────────────────────────────────────────────────────────────────────
-const DATA = {"villages": [{"id": "V12", "name": "Kharkhauda", "gauge": "G06", "station": "Chandan Ford", "population": 980, "vulnerable": 350, "shelter": "Panchayat Bhawan", "shelter_cap": 110, "dist_km": 6.0, "road": "Cut off in floods", "channel": "Loudspeaker", "no_phone_pct": 56, "river_level": 2.09, "danger_level": 4.4, "level_gap": -2.31, "rainfall3d": 6.8, "soil": 45.2, "rise": -0.05, "risk": 32.5, "priority": 52.2, "combined": 40.4, "alert": {"level": "MODERATE", "what": "River at Chandan Ford gauge is at 2.09m, 2.31m below danger (4.4m). Risk level: MODERATE. Flood crossing expected within 24\u201348 hours.", "why": "Population: 980 (350 vulnerable). Shelter gap: 870 people. Road access: Cut off in floods.", "action": "IMMEDIATE evacuation. Roads will flood \u2014 move to Panchayat Bhawan (6.0km) NOW before water rises.", "deliver": "Alert via: Loudspeaker. \u26a0\ufe0f 56% have no phone \u2014 loudspeaker essential."}, "flood_predicted": false}, {"id": "V05", "name": "Mahigaon", "gauge": "G03", "station": "Mahi Crossing", "population": 3100, "vulnerable": 890, "shelter": "Govt College Ground Shelter", "shelter_cap": 600, "dist_km": 2.1, "road": "Seasonal", "channel": "SMS", "no_phone_pct": 22, "river_level": 2.68, "danger_level": 5.0, "level_gap": -2.32, "rainfall3d": 1.6, "soil": 42.5, "rise": -0.15, "risk": 21.1, "priority": 66.0, "combined": 39.1, "alert": {"level": "LOW", "what": "River at Mahi Crossing gauge is at 2.68m, 2.32m below danger (5.0m). Risk level: LOW. Flood crossing expected within 24\u201348 hours.", "why": "Population: 3,100 (890 vulnerable). Shelter gap: 2,500 people. Road access: Seasonal.", "action": "Begin staged evacuation to Govt College Ground Shelter (2.1km). Prioritise 890 vulnerable residents first.", "deliver": "Alert via: SMS."}, "flood_predicted": false}, {"id": "V11", "name": "Chandanpur", "gauge": "G06", "station": "Chandan Ford", "population": 1420, "vulnerable": 450, "shelter": "Govt Primary School", "shelter_cap": 220, "dist_km": 2.4, "road": "Seasonal", "channel": "SMS", "no_phone_pct": 27, "river_level": 2.09, "danger_level": 4.4, "level_gap": -2.31, "rainfall3d": 6.8, "soil": 45.2, "rise": -0.05, "risk": 32.5, "priority": 40.8, "combined": 35.8, "alert": {"level": "MODERATE", "what": "River at Chandan Ford gauge is at 2.09m, 2.31m below danger (4.4m). Risk level: MODERATE. Flood crossing expected within 24\u201348 hours.", "why": "Population: 1,420 (450 vulnerable). Shelter gap: 1,200 people. Road access: Seasonal.", "action": "Begin staged evacuation to Govt Primary School (2.4km). Prioritise 450 vulnerable residents first.", "deliver": "Alert via: SMS."}, "flood_predicted": false}, {"id": "V02", "name": "Keshavpur", "gauge": "G01", "station": "Karnali Bend", "population": 940, "vulnerable": 310, "shelter": "Community Hall", "shelter_cap": 150, "dist_km": 3.8, "road": "Seasonal", "channel": "Loudspeaker", "no_phone_pct": 41, "river_level": 2.21, "danger_level": 4.5, "level_gap": -2.29, "rainfall3d": 8.7, "soil": 43.8, "rise": -0.03, "risk": 36.6, "priority": 34.4, "combined": 35.7, "alert": {"level": "MODERATE", "what": "River at Karnali Bend gauge is at 2.21m, 2.29m below danger (4.5m). Risk level: MODERATE. Flood crossing expected within 24\u201348 hours.", "why": "Population: 940 (310 vulnerable). Shelter gap: 790 people. Road access: Seasonal.", "action": "Begin staged evacuation to Community Hall (3.8km). Prioritise 310 vulnerable residents first.", "deliver": "Alert via: Loudspeaker. \u26a0\ufe0f 41% have no phone \u2014 loudspeaker essential."}, "flood_predicted": false}, {"id": "V06", "name": "Barauli", "gauge": "G03", "station": "Mahi Crossing", "population": 1280, "vulnerable": 430, "shelter": "Temple Community Hall", "shelter_cap": 200, "dist_km": 5.2, "road": "Cut off in floods", "channel": "Loudspeaker", "no_phone_pct": 47, "river_level": 2.68, "danger_level": 5.0, "level_gap": -2.32, "rainfall3d": 1.6, "soil": 42.5, "rise": -0.15, "risk": 21.1, "priority": 55.7, "combined": 34.9, "alert": {"level": "LOW", "what": "River at Mahi Crossing gauge is at 2.68m, 2.32m below danger (5.0m). Risk level: LOW. Flood crossing expected within 24\u201348 hours.", "why": "Population: 1,280 (430 vulnerable). Shelter gap: 1,080 people. Road access: Cut off in floods.", "action": "IMMEDIATE evacuation. Roads will flood \u2014 move to Temple Community Hall (5.2km) NOW before water rises.", "deliver": "Alert via: Loudspeaker. \u26a0\ufe0f 47% have no phone \u2014 loudspeaker essential."}, "flood_predicted": false}, {"id": "V01", "name": "Rampura", "gauge": "G01", "station": "Karnali Bend", "population": 1850, "vulnerable": 520, "shelter": "Govt Primary School", "shelter_cap": 300, "dist_km": 1.2, "road": "All-weather", "channel": "SMS", "no_phone_pct": 18, "river_level": 2.21, "danger_level": 4.5, "level_gap": -2.29, "rainfall3d": 8.7, "soil": 43.8, "rise": -0.03, "risk": 36.6, "priority": 31.3, "combined": 34.5, "alert": {"level": "MODERATE", "what": "River at Karnali Bend gauge is at 2.21m, 2.29m below danger (4.5m). Risk level: MODERATE. Flood crossing expected within 24\u201348 hours.", "why": "Population: 1,850 (520 vulnerable). Shelter gap: 1,550 people. Road access: All-weather.", "action": "Issue warning alert. Prepare evacuation to Govt Primary School (1.2km). Monitor every 2h.", "deliver": "Alert via: SMS."}, "flood_predicted": false}, {"id": "V04", "name": "Dhanipur", "gauge": "G02", "station": "Sundar Ghat", "population": 720, "vulnerable": 260, "shelter": "Panchayat Bhawan", "shelter_cap": 120, "dist_km": 4.5, "road": "Cut off in floods", "channel": "Loudspeaker", "no_phone_pct": 52, "river_level": 1.94, "danger_level": 4.2, "level_gap": -2.26, "rainfall3d": 5.1, "soil": 40.3, "rise": -0.01, "risk": 22.7, "priority": 47.1, "combined": 32.5, "alert": {"level": "LOW", "what": "River at Sundar Ghat gauge is at 1.94m, 2.26m below danger (4.2m). Risk level: LOW. Flood crossing expected within 24\u201348 hours.", "why": "Population: 720 (260 vulnerable). Shelter gap: 600 people. Road access: Cut off in floods.", "action": "IMMEDIATE evacuation. Roads will flood \u2014 move to Panchayat Bhawan (4.5km) NOW before water rises.", "deliver": "Alert via: Loudspeaker. \u26a0\ufe0f 52% have no phone \u2014 loudspeaker essential."}, "flood_predicted": false}, {"id": "V03", "name": "Lakshmipur", "gauge": "G02", "station": "Sundar Ghat", "population": 2300, "vulnerable": 640, "shelter": "Higher Secondary School", "shelter_cap": 450, "dist_km": 0.9, "road": "All-weather", "channel": "SMS", "no_phone_pct": 12, "river_level": 1.94, "danger_level": 4.2, "level_gap": -2.26, "rainfall3d": 5.1, "soil": 40.3, "rise": -0.01, "risk": 22.7, "priority": 37.2, "combined": 28.5, "alert": {"level": "LOW", "what": "River at Sundar Ghat gauge is at 1.94m, 2.26m below danger (4.2m). Risk level: LOW. Flood crossing expected within 24\u201348 hours.", "why": "Population: 2,300 (640 vulnerable). Shelter gap: 1,850 people. Road access: All-weather.", "action": "Issue warning alert. Prepare evacuation to Higher Secondary School (0.9km). Monitor every 2h.", "deliver": "Alert via: SMS."}, "flood_predicted": false}, {"id": "V08", "name": "Siddhpur", "gauge": "G04", "station": "Tara Barrage", "population": 860, "vulnerable": 290, "shelter": "Community Hall", "shelter_cap": 100, "dist_km": 3.3, "road": "Seasonal", "channel": "WhatsApp group", "no_phone_pct": 35, "river_level": 2.23, "danger_level": 4.6, "level_gap": -2.37, "rainfall3d": 0.3, "soil": 42.1, "rise": -0.07, "risk": 20.1, "priority": 32.9, "combined": 25.2, "alert": {"level": "LOW", "what": "River at Tara Barrage gauge is at 2.23m, 2.37m below danger (4.6m). Risk level: LOW. Flood crossing expected within 24\u201348 hours.", "why": "Population: 860 (290 vulnerable). Shelter gap: 760 people. Road access: Seasonal.", "action": "Begin staged evacuation to Community Hall (3.3km). Prioritise 290 vulnerable residents first.", "deliver": "Alert via: WhatsApp group."}, "flood_predicted": false}, {"id": "V09", "name": "Nilganj", "gauge": "G05", "station": "Nila Mouth", "population": 2050, "vulnerable": 610, "shelter": "Govt High School", "shelter_cap": 350, "dist_km": 1.1, "road": "All-weather", "channel": "SMS", "no_phone_pct": 15, "river_level": 1.66, "danger_level": 3.9, "level_gap": -2.24, "rainfall3d": 5.4, "soil": 49.6, "rise": -0.01, "risk": 17.4, "priority": 34.3, "combined": 24.2, "alert": {"level": "LOW", "what": "River at Nila Mouth gauge is at 1.66m, 2.24m below danger (3.9m). Risk level: LOW. Flood crossing expected within 24\u201348 hours.", "why": "Population: 2,050 (610 vulnerable). Shelter gap: 1,700 people. Road access: All-weather.", "action": "Issue warning alert. Prepare evacuation to Govt High School (1.1km). Monitor every 2h.", "deliver": "Alert via: SMS."}, "flood_predicted": false}, {"id": "V07", "name": "Taranagar", "gauge": "G04", "station": "Tara Barrage", "population": 1600, "vulnerable": 480, "shelter": "Govt Middle School", "shelter_cap": 250, "dist_km": 1.6, "road": "All-weather", "channel": "SMS", "no_phone_pct": 20, "river_level": 2.23, "danger_level": 4.6, "level_gap": -2.37, "rainfall3d": 0.3, "soil": 42.1, "rise": -0.07, "risk": 20.1, "priority": 27.8, "combined": 23.2, "alert": {"level": "LOW", "what": "River at Tara Barrage gauge is at 2.23m, 2.37m below danger (4.6m). Risk level: LOW. Flood crossing expected within 24\u201348 hours.", "why": "Population: 1,600 (480 vulnerable). Shelter gap: 1,350 people. Road access: All-weather.", "action": "Issue warning alert. Prepare evacuation to Govt Middle School (1.6km). Monitor every 2h.", "deliver": "Alert via: SMS."}, "flood_predicted": false}, {"id": "V10", "name": "Fatehpur Kalan", "gauge": "G05", "station": "Nila Mouth", "population": 690, "vulnerable": 240, "shelter": "Anganwadi Centre", "shelter_cap": 60, "dist_km": 2.9, "road": "Seasonal", "channel": "Loudspeaker", "no_phone_pct": 44, "river_level": 1.66, "danger_level": 3.9, "level_gap": -2.24, "rainfall3d": 5.4, "soil": 49.6, "rise": -0.01, "risk": 17.4, "priority": 31.2, "combined": 22.9, "alert": {"level": "LOW", "what": "River at Nila Mouth gauge is at 1.66m, 2.24m below danger (3.9m). Risk level: LOW. Flood crossing expected within 24\u201348 hours.", "why": "Population: 690 (240 vulnerable). Shelter gap: 630 people. Road access: Seasonal.", "action": "Begin staged evacuation to Anganwadi Centre (2.9km). Prioritise 240 vulnerable residents first.", "deliver": "Alert via: Loudspeaker. \u26a0\ufe0f 44% have no phone \u2014 loudspeaker essential."}, "flood_predicted": false}], "gauges": [{"id": "G01", "name": "Karnali Bend", "risk": 36.6, "river": 2.21, "danger": 4.5, "warning": 3.8, "predicted": false, "rainfall": 8.7, "soil": 43.8, "rise": -0.03}, {"id": "G02", "name": "Sundar Ghat", "risk": 22.7, "river": 1.94, "danger": 4.2, "warning": 3.5, "predicted": false, "rainfall": 5.1, "soil": 40.3, "rise": -0.01}, {"id": "G03", "name": "Mahi Crossing", "risk": 21.1, "river": 2.68, "danger": 5.0, "warning": 4.3, "predicted": false, "rainfall": 1.6, "soil": 42.5, "rise": -0.15}, {"id": "G04", "name": "Tara Barrage", "risk": 20.1, "river": 2.23, "danger": 4.6, "warning": 3.9, "predicted": false, "rainfall": 0.3, "soil": 42.1, "rise": -0.07}, {"id": "G05", "name": "Nila Mouth", "risk": 17.4, "river": 1.66, "danger": 3.9, "warning": 3.2, "predicted": false, "rainfall": 5.4, "soil": 49.6, "rise": -0.01}, {"id": "G06", "name": "Chandan Ford", "risk": 32.5, "river": 2.09, "danger": 4.4, "warning": 3.7, "predicted": false, "rainfall": 6.8, "soil": 45.2, "rise": -0.05}], "metrics": {"tp": 6, "fp": 11, "fn": 1, "tn": 102, "precision": 0.35, "recall": 0.86, "f1": 0.5, "threshold": 45}, "quality": {"duplicates_removed": 3, "river_level_outlier": 1, "soil_outlier": 1, "negative_rainfall": 1, "missing_rainfall": 6, "missing_river": 3}, "chart": {"G01": {"dates": ["Jul 01", "Jul 02", "Jul 03", "Jul 04", "Jul 05", "Jul 06", "Jul 07", "Jul 08", "Jul 09", "Jul 10", "Jul 11", "Jul 12", "Jul 13", "Jul 14", "Jul 15", "Jul 16", "Jul 17", "Jul 18", "Jul 19", "Jul 20", "Jul 21", "Jul 22", "Jul 23", "Jul 24", "Jul 25", "Jul 26", "Jul 27", "Jul 28", "Jul 29", "Jul 30", "Jul 31", "Aug 01", "Aug 02", "Aug 03", "Aug 04", "Aug 05", "Aug 06", "Aug 07", "Aug 08", "Aug 09", "Aug 10", "Aug 11", "Aug 12", "Aug 13", "Aug 14", "Aug 15", "Aug 16", "Aug 17", "Aug 18", "Aug 19", "Aug 20", "Aug 21", "Aug 22", "Aug 23", "Aug 24", "Aug 25", "Aug 26", "Aug 27", "Aug 28", "Aug 29"], "levels": [2.08, 2.07, 2.11, 2.11, 2.16, 2.16, 2.27, 2.26, 2.47, 3.45, 4.2, 3.79, 3.11, 2.6, 2.32, 2.25, 2.23, 2.16, 2.14, 2.12, 2.17, 2.5, 3.58, 4.63, 4.64, 3.86, 3.05, 2.63, 2.34, 2.24, 2.18, 2.19, 2.27, 2.16, 2.15, 2.18, 2.09, 2.36, 3.33, 4.49, 4.57, 3.92, 3.13, 2.65, 2.36, 2.21, 2.17, 2.16, 2.16, 2.19, 2.19, 2.47, 3.3, 4.03, 3.89, 3.18, 2.72, 2.41, 2.24, 2.21], "rainfall": [0.0, 0.0, 0.0, 0.3, 2.6, 6.5, 3.9, 0.0, 59.7, 75.8, 31.8, 0.7, 0.0, 0.0, 4.8, 0.0, 0.0, 0.0, 0.6, 2.1, 7.2, 60.0, 80.2, 52.9, 18.7, 0.2, 0.0, 0.2, 4.3, 3.0, 0.0, 6.1, 0.3, 0.0, 0.0, 0.0, 0.0, 48.8, 87.2, 54.4, 22.5, 0.0, 0.0, 0.0, 0.0, 0.0, 3.1, 0.0, 0.0, 7.6, 0.0, 57.8, 62.7, 43.9, 0.0, 4.4, 0.0, 1.5, 0.0, 7.2], "risk": [23.3, 22.1, 22.4, 26.6, 27.6, 38.4, 27.2, 22.3, 82.9, 100.0, 45.8, -41.4, -42.3, -22.1, 9.8, 18.4, 25.9, 14.5, 24.4, 23.2, 40.7, 93.3, 100.0, 84.2, 5.5, -55.9, -40.3, -13.4, 12.4, 21.0, 19.4, 37.0, 22.3, 18.1, 24.2, 17.7, 21.4, 83.5, 100.0, 83.5, 16.5, -49.8, -40.8, -12.4, 4.6, 15.8, 25.6, 18.9, 21.0, 39.9, 19.3, 89.0, 100.0, 88.3, -31.8, -32.3, -16.3, 2.2, 11.6, 36.6], "flood": ["N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "Y", "Y", "Y", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "Y", "Y", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N"], "danger": 4.5, "warning": 3.8}, "G02": {"dates": ["Jul 01", "Jul 02", "Jul 03", "Jul 04", "Jul 05", "Jul 06", "Jul 07", "Jul 08", "Jul 09", "Jul 10", "Jul 11", "Jul 12", "Jul 13", "Jul 14", "Jul 15", "Jul 16", "Jul 17", "Jul 18", "Jul 19", "Jul 20", "Jul 21", "Jul 22", "Jul 23", "Jul 24", "Jul 25", "Jul 26", "Jul 27", "Jul 28", "Jul 29", "Jul 30", "Jul 31", "Aug 01", "Aug 02", "Aug 03", "Aug 04", "Aug 05", "Aug 06", "Aug 07", "Aug 08", "Aug 09", "Aug 10", "Aug 11", "Aug 12", "Aug 13", "Aug 14", "Aug 15", "Aug 16", "Aug 17", "Aug 18", "Aug 19", "Aug 20", "Aug 21", "Aug 22", "Aug 23", "Aug 24", "Aug 25", "Aug 26", "Aug 27", "Aug 28", "Aug 29"], "levels": [1.8, 1.83, 1.8, 1.83, 1.88, 1.88, 1.85, 1.87, 2.16, 3.04, 3.79, 3.6, 2.82, 2.31, 2.04, 1.97, 1.9, 1.97, 1.94, 1.93, 1.88, 2.09, 3.04, 4.15, 4.07, 3.37, 2.66, 2.23, 2.1, 1.96, 1.87, 1.85, 1.85, 1.83, 1.79, 1.82, 1.81, 2.06, 3.16, 4.33, 4.09, 3.42, 2.72, 2.27, 2.06, 1.96, 1.86, 1.81, 1.83, 1.81, 1.8, 1.97, 2.56, 3.02, 2.95, 2.55, 2.17, 2.01, 1.95, 1.94], "rainfall": [0.0, 2.2, 0.5, 0.3, 7.4, 0.0, 0.0, 0.0, 62.9, 80.1, 48.1, 0.0, 0.0, 0.0, 4.3, 0.0, 7.4, 0.2, 3.4, 0.0, 0.0, 49.4, 103.9, 46.3, 18.9, 0.0, 0.0, 5.1, 1.7, 0.0, 0.5, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 61.5, 112.7, 44.8, 22.4, 0.0, 2.5, 0.0, 0.0, 0.0, 0.0, 6.3, 0.0, 0.0, 0.0, 44.7, 52.6, 35.0, 4.8, 0.0, 0.0, 3.0, 2.1, 0.0], "risk": [21.9, 25.2, 20.6, 23.6, 35.4, 18.5, 16.9, 22.0, 86.6, 100.0, 74.6, -35.2, -38.5, -22.6, 7.9, 11.7, 36.0, 29.9, 21.0, 20.4, 18.7, 79.2, 100.0, 63.5, 3.0, -48.9, -30.7, 0.5, 12.6, 11.6, 15.6, 22.0, 19.9, 22.7, 19.5, 22.0, 20.8, 83.0, 100.0, 50.3, -1.3, -46.9, -29.9, -9.5, 11.3, 12.2, 12.6, 29.2, 19.4, 23.0, 21.0, 74.3, 100.0, 79.4, -0.7, -20.0, -5.1, 11.1, 22.0, 22.7], "flood": ["N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "Y", "Y", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N"], "danger": 4.2, "warning": 3.5}, "G03": {"dates": ["Jul 01", "Jul 02", "Jul 03", "Jul 04", "Jul 05", "Jul 06", "Jul 07", "Jul 08", "Jul 09", "Jul 10", "Jul 11", "Jul 12", "Jul 13", "Jul 14", "Jul 15", "Jul 16", "Jul 17", "Jul 18", "Jul 19", "Jul 20", "Jul 21", "Jul 22", "Jul 23", "Jul 24", "Jul 25", "Jul 26", "Jul 27", "Jul 28", "Jul 29", "Jul 30", "Jul 31", "Aug 01", "Aug 02", "Aug 03", "Aug 04", "Aug 05", "Aug 06", "Aug 07", "Aug 08", "Aug 09", "Aug 10", "Aug 11", "Aug 12", "Aug 13", "Aug 14", "Aug 15", "Aug 16", "Aug 17", "Aug 18", "Aug 19", "Aug 20", "Aug 21", "Aug 22", "Aug 23", "Aug 24", "Aug 25", "Aug 26", "Aug 27", "Aug 28", "Aug 29"], "levels": [2.61, 2.62, 2.57, 2.65, 2.67, 2.64, 2.59, 2.56, 2.88, 3.7, 4.27, 4.24, 3.72, 3.29, 3.01, 2.87, 2.79, 2.77, 2.8, 2.7, 2.62, 2.98, 4.41, 5.48, 5.29, 4.45, 3.62, 3.14, 2.85, 2.75, 2.77, 2.78, 2.72, 2.67, 2.64, 2.61, 2.6, 3.19, 5.32, 6.84, 6.89, 5.56, 4.23, 3.36, 2.97, 2.78, 2.69, 2.67, 2.66, 2.62, 2.63, 3.04, 4.19, 5.09, 4.87, 3.96, 3.34, 3.09, 2.83, 2.68], "rainfall": [0.0, 0.0, 0.2, 4.1, 0.0, 0.0, 0.0, 0.0, 47.8, 49.7, 39.9, 7.4, 0.0, 2.4, 0.0, 4.9, 0.0, 6.4, 0.0, 0.0, 0.0, 65.9, 78.6, 42.0, 16.1, 0.0, 0.0, 0.0, 0.0, 2.1, 7.7, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 94.4, 102.7, 71.5, 27.4, 0.0, 0.0, 0.2, 0.9, 0.0, 0.0, 0.8, 0.0, 0.0, 0.0, 61.9, 62.4, 44.1, 0.0, 2.1, 5.0, 0.0, 0.0, 1.6], "risk": [25.8, 21.1, 25.3, 38.2, 18.1, 21.2, 18.6, 25.5, 87.9, 100.0, 93.2, -16.7, -33.7, -7.3, -2.5, 28.3, 16.6, 32.3, 18.6, 17.6, 16.9, 96.4, 100.0, 59.2, -12.6, -71.5, -43.9, -12.2, 6.1, 24.7, 44.8, 20.7, 19.6, 16.9, 26.7, 24.0, 20.9, 100.0, 100.0, 100.0, -22.8, -126.5, -87.4, -42.8, 0.2, 13.0, 16.1, 28.0, 24.1, 21.3, 29.1, 99.6, 100.0, 81.3, -50.5, -57.4, -12.5, -3.7, 6.4, 21.1], "flood": ["N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "Y", "Y", "Y", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "Y", "Y", "Y", "Y", "Y", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "Y", "Y", "N", "N", "N", "N", "N", "N", "N"], "danger": 5.0, "warning": 4.3}, "G04": {"dates": ["Jul 01", "Jul 02", "Jul 03", "Jul 04", "Jul 05", "Jul 06", "Jul 07", "Jul 08", "Jul 09", "Jul 10", "Jul 11", "Jul 12", "Jul 13", "Jul 14", "Jul 15", "Jul 16", "Jul 17", "Jul 18", "Jul 19", "Jul 20", "Jul 21", "Jul 22", "Jul 23", "Jul 24", "Jul 25", "Jul 26", "Jul 27", "Jul 28", "Jul 29", "Jul 30", "Jul 31", "Aug 01", "Aug 02", "Aug 03", "Aug 04", "Aug 05", "Aug 06", "Aug 07", "Aug 08", "Aug 09", "Aug 10", "Aug 11", "Aug 12", "Aug 13", "Aug 14", "Aug 15", "Aug 16", "Aug 17", "Aug 18", "Aug 19", "Aug 20", "Aug 21", "Aug 22", "Aug 23", "Aug 24", "Aug 25", "Aug 26", "Aug 27", "Aug 28", "Aug 29"], "levels": [2.23, 2.27, 2.3, 2.23, 2.26, 2.27, 2.29, 2.33, 2.61, 3.61, 4.49, 4.09, 3.37, 2.81, 2.55, 2.39, 2.28, 2.32, 2.3, 2.27, 2.32, 2.63, 3.61, 4.44, 4.52, 3.89, 3.23, 2.77, 2.5, 2.5, 2.5, 2.5, 2.5, 2.3, 2.22, 2.2, 2.21, 2.71, 4.31, 5.72, 5.51, 4.41, 3.4, 2.82, 2.46, 2.36, 2.28, 2.29, 2.33, 2.3, 2.32, 2.47, 3.25, 4.31, 4.22, 3.45, 2.82, 2.52, 2.3, 2.23], "rainfall": [0.0, 4.7, 0.0, 0.0, 7.7, 0.0, 6.0, 0.3, 52.9, 0.2, 29.6, 1.3, 0.0, 0.3, 0.0, 0.0, 3.1, 4.4, 0.0, 4.8, 0.0, 62.2, 63.5, 52.5, 20.7, 5.7, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 6.1, 0.2, 0.0, 0.0, 6.2, 77.7, 117.2, 53.2, 22.9, 0.0, 0.0, 0.0, 0.0, 0.0, 3.6, 7.3, 0.0, 3.0, 0.0, 38.2, 79.4, 43.3, 7.6, 0.0, 0.0, 0.3, 0.0, 0.0], "risk": [24.3, 39.9, 20.0, 17.3, 39.8, 16.7, 35.9, 21.3, 87.5, 100.0, 36.9, -56.2, -38.0, -24.2, 5.3, 8.6, 24.9, 30.7, 20.0, 32.1, 23.7, 92.3, 100.0, 92.7, 14.5, -35.4, -34.3, -16.7, 5.7, 24.8, 27.2, 28.4, 41.1, 1.6, 13.3, 20.8, 42.9, 100.0, 100.0, 51.2, -17.8, -89.9, -56.3, -21.9, 0.5, 18.2, 23.7, 37.8, 24.4, 27.9, 17.7, 74.8, 100.0, 78.0, -20.7, -52.7, -31.3, -1.2, 8.4, 20.1], "flood": ["N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "Y", "Y", "Y", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N"], "danger": 4.6, "warning": 3.9}, "G05": {"dates": ["Jul 01", "Jul 02", "Jul 03", "Jul 04", "Jul 05", "Jul 06", "Jul 07", "Jul 08", "Jul 09", "Jul 10", "Jul 11", "Jul 12", "Jul 13", "Jul 14", "Jul 15", "Jul 16", "Jul 17", "Jul 18", "Jul 19", "Jul 20", "Jul 21", "Jul 22", "Jul 23", "Jul 24", "Jul 25", "Jul 26", "Jul 27", "Jul 28", "Jul 29", "Jul 30", "Jul 31", "Aug 01", "Aug 02", "Aug 03", "Aug 04", "Aug 05", "Aug 06", "Aug 07", "Aug 08", "Aug 09", "Aug 10", "Aug 11", "Aug 12", "Aug 13", "Aug 14", "Aug 15", "Aug 16", "Aug 17", "Aug 18", "Aug 19", "Aug 20", "Aug 21", "Aug 22", "Aug 23", "Aug 24", "Aug 25", "Aug 26", "Aug 27", "Aug 28", "Aug 29"], "levels": [1.47, 1.51, 1.55, 1.55, 1.63, 1.57, 1.56, 1.49, 1.71, 2.38, 2.91, 2.76, 2.29, 1.9, 1.73, 1.73, 1.74, 1.69, 1.67, 1.61, 1.55, 1.83, 2.85, 3.54, 3.6, 3.04, 2.49, 2.13, 1.85, 1.67, 1.64, 1.62, 1.6, 1.67, 1.61, 1.54, 1.47, 1.83, 3.28, 4.25, 3.96, 3.15, 2.45, 2.02, 1.8, 1.7, 1.66, 1.54, 1.57, 1.54, 1.54, 1.93, 3.16, 4.05, 3.45, 2.66, 2.17, 1.84, 1.67, 1.66], "rainfall": [0.0, 0.0, 0.0, 7.7, 0.0, 0.0, 0.0, 0.0, 52.1, 57.3, 33.2, 6.1, 0.0, 0.0, 7.9, 7.8, 7.0, 2.0, 0.0, 0.0, 0.0, 70.5, 65.8, 55.8, 19.0, 6.4, 6.9, 0.0, 0.0, 2.7, 0.0, 2.3, 6.6, 0.0, 0.0, 0.0, 0.0, 83.9, 101.9, 41.7, 20.4, 0.6, 0.0, 4.3, 4.0, 0.0, 0.0, 0.0, 0.0, 0.0, 4.4, 79.5, 92.2, 27.4, 0.0, 7.5, 0.2, 0.0, 5.4, 0.0], "risk": [19.8, 20.4, 18.3, 36.0, 20.7, 11.4, 18.2, 11.3, 76.4, 100.0, 64.7, -9.5, -29.4, -15.6, 23.1, 27.6, 29.3, 11.3, 16.3, 17.3, 11.9, 87.0, 100.0, 97.1, 14.4, -22.5, -12.7, -14.2, 4.0, 10.2, 20.9, 23.2, 31.3, 21.5, 11.3, 12.4, 11.1, 94.9, 100.0, 49.8, -11.9, -54.4, -38.8, -0.9, 12.5, 11.5, 12.6, 15.5, 20.3, 14.4, 28.0, 98.6, 100.0, 30.6, -53.2, -29.5, -22.4, -3.4, 19.6, 17.4], "flood": ["N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "Y", "Y", "Y", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "Y", "Y", "N", "N", "N", "N", "N", "N", "N"], "danger": 3.9, "warning": 3.2}, "G06": {"dates": ["Jul 01", "Jul 02", "Jul 03", "Jul 04", "Jul 05", "Jul 06", "Jul 07", "Jul 08", "Jul 09", "Jul 10", "Jul 11", "Jul 12", "Jul 13", "Jul 14", "Jul 15", "Jul 16", "Jul 17", "Jul 18", "Jul 19", "Jul 20", "Jul 21", "Jul 22", "Jul 23", "Jul 24", "Jul 25", "Jul 26", "Jul 27", "Jul 28", "Jul 29", "Jul 30", "Jul 31", "Aug 01", "Aug 02", "Aug 03", "Aug 04", "Aug 05", "Aug 06", "Aug 07", "Aug 08", "Aug 09", "Aug 10", "Aug 11", "Aug 12", "Aug 13", "Aug 14", "Aug 15", "Aug 16", "Aug 17", "Aug 18", "Aug 19", "Aug 20", "Aug 21", "Aug 22", "Aug 23", "Aug 24", "Aug 25", "Aug 26", "Aug 27", "Aug 28", "Aug 29"], "levels": [2.03, 2.06, 2.07, 2.05, 1.99, 2.03, 2.03, 2.01, 2.32, 3.49, 4.54, 4.19, 3.35, 2.76, 2.43, 2.27, 2.15, 2.08, 2.02, 2.06, 2.02, 2.27, 3.29, 4.66, 4.99, 4.15, 3.19, 2.63, 2.31, 2.18, 2.15, 2.08, 2.13, 2.12, 2.05, 2.08, 2.04, 2.41, 3.52, 4.88, 4.46, 4.03, 3.14, 2.64, 2.34, 2.19, 2.09, 2.07, 2.03, 2.07, 2.15, 2.45, 3.6, 4.81, 4.37, 3.38, 2.65, 2.27, 2.14, 2.09], "rainfall": [0.0, 0.0, 0.5, 0.0, 0.0, 5.1, 0.0, 0.0, 57.8, 84.3, 34.4, 6.9, 0.0, 0.0, 5.3, 0.0, 0.0, 0.0, 4.2, 0.0, 0.0, 51.1, 75.5, 65.7, 21.0, 0.0, 0.0, 4.4, 0.0, 1.8, 0.0, 3.0, 4.8, 0.0, 1.4, 0.5, 0.0, 59.7, 81.4, 60.5, 16.2, 0.0, 7.1, 0.0, 0.0, 0.0, 2.9, 0.0, 0.0, 7.6, 0.0, 54.1, 88.6, 39.6, 0.0, 0.0, 0.0, 0.0, 0.0, 6.8], "risk": [23.4, 24.1, 23.5, 18.9, 13.4, 37.2, 18.4, 19.6, 87.5, 100.0, 45.6, -43.9, -54.9, -27.5, 11.9, 1.9, 17.8, 13.8, 26.2, 24.7, 14.6, 82.6, 100.0, 100.0, 17.3, -73.6, -58.8, -9.2, -6.3, 23.7, 16.5, 26.3, 35.9, 17.3, 19.0, 24.6, 19.1, 93.6, 100.0, 100.0, -49.3, -39.9, -38.2, -19.9, -0.5, 13.0, 25.3, 18.8, 19.4, 41.9, 24.7, 89.9, 100.0, 57.4, -66.6, -66.2, -37.5, -2.9, 15.7, 32.5], "flood": ["N", "N", "N", "N", "N", "N", "N", "N", "Y", "Y", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "Y", "Y", "Y", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "Y", "Y", "Y", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "Y", "Y", "N", "N", "N", "N", "N", "N", "N"], "danger": 4.4, "warning": 3.7}}};
-
-const {villages, gauges, metrics, quality, chart} = DATA;
-
-// ── HELPERS ──────────────────────────────────────────────────────────────────
-function levelClass(lvl){
-  if(lvl==='CRITICAL') return 'critical';
-  if(lvl==='HIGH') return 'high';
-  if(lvl==='MODERATE') return 'moderate';
-  return 'low';
-}
-function riskBadge(score){
-  if(score>=70) return '<span class="badge badge-critical">CRITICAL</span>';
-  if(score>=45) return '<span class="badge badge-high">HIGH</span>';
-  if(score>=25) return '<span class="badge badge-moderate">MODERATE</span>';
-  return '<span class="badge badge-low">LOW</span>';
-}
-function barClass(score){
-  if(score>=70) return 'bar-critical';
-  if(score>=45) return 'bar-high';
-  if(score>=25) return 'bar-moderate';
-  return 'bar-low';
-}
-function roadClass(r){
-  if(r==='Cut off in floods') return 'road-cutoff';
-  if(r==='Seasonal') return 'road-seasonal';
-  return 'road-all';
-}
-function fmt(n){return n.toLocaleString()}
-
-// ── TABS ─────────────────────────────────────────────────────────────────────
-function showTab(id){
-  document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
-  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
-  document.getElementById('tab-'+id).classList.add('active');
-  event.target.classList.add('active');
-}
-
-// ── DASHBOARD ────────────────────────────────────────────────────────────────
-function buildDashboard(){
-  const flagged = villages.filter(v=>v.alert.level==='HIGH'||v.alert.level==='CRITICAL');
-  const popAtRisk = flagged.reduce((a,v)=>a+v.population,0);
-  const maxRisk = Math.max(...gauges.map(g=>g.risk));
-  const maxGauge = gauges.find(g=>g.risk===maxRisk);
-
-  document.getElementById('sb-gauges-active').textContent = gauges.length;
-  document.getElementById('sb-at-risk').textContent = flagged.length || '—';
-  document.getElementById('sb-pop-risk').textContent = popAtRisk ? fmt(popAtRisk) : '—';
-  document.getElementById('sb-max-risk').textContent = maxRisk.toFixed(0)+'% ('+maxGauge.id+')';
-
-  const anyHigh = gauges.some(g=>g.risk>=45);
-  const sb = document.getElementById('sb-status');
-  if(anyHigh){sb.textContent='⚠️ MONITORING';sb.className='badge badge-high';}
-  else{sb.textContent='✅ ALL CLEAR';sb.className='badge badge-low';}
-
-  // Gauge grid
-  const gg = document.getElementById('gauge-grid');
-  gg.innerHTML = gauges.map(g=>{
-    const pct = Math.min(g.river/g.danger*100,100);
-    const cls = g.risk>=70?'critical':g.risk>=45?'high':g.risk>=25?'moderate':'low';
-    return `<div class="gauge-card" onclick="openGaugeTab('${g.id}')">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start">
-        <div><div class="gauge-name">${g.name}</div><div class="gauge-id">${g.id}</div></div>
-        ${riskBadge(g.risk)}
-      </div>
-      <div class="gauge-row">
-        <span class="gauge-val">${g.river}m</span>
-        <span style="font-size:.75rem;color:var(--muted)">Danger: ${g.danger}m</span>
-      </div>
-      <div class="bar-wrap"><div class="bar-fill bar-${cls}" style="width:${pct}%"></div></div>
-      <div style="display:flex;justify-content:space-between;margin-top:8px;font-size:.73rem;color:var(--muted)">
-        <span>Rain 3d: ${g.rainfall}mm</span>
-        <span>Rise: ${g.rise>=0?'+':''}${g.rise}m/day</span>
-        <span>Soil: ${g.soil}%</span>
-      </div>
-    </div>`;
-  }).join('');
-
-  // Top 3 villages
-  const top3 = villages.slice(0,3);
-  const tvc = document.getElementById('top-village-cards');
-  tvc.innerHTML = top3.map((v,i)=>{
-    const cls = levelClass(v.alert.level);
-    const gap = Math.max(v.population - v.shelter_cap, 0);
-    return `<div class="card" style="margin-bottom:12px;border-left:4px solid var(--${cls})">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px">
-        <div>
-          <div style="font-size:.72rem;color:var(--muted);margin-bottom:2px">RANK ${i+1} PRIORITY</div>
-          <div style="font-size:1.1rem;font-weight:700">${v.name} <span style="font-size:.8rem;color:var(--muted)">(${v.gauge})</span></div>
-          <div style="font-size:.78rem;color:var(--muted);margin-top:3px">${v.station}</div>
-        </div>
-        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-          <span class="badge badge-${cls}">${v.alert.level}</span>
-          <span style="font-size:.78rem;color:var(--muted)">Score: <b style="color:var(--text)">${v.combined}</b></span>
-        </div>
-      </div>
-      <div class="grid3" style="margin-top:14px;gap:10px">
-        <div class="card-sm" style="padding:10px"><div style="font-size:.7rem;color:var(--muted)">POPULATION</div><div style="font-weight:700;font-size:1rem">${fmt(v.population)}</div><div style="font-size:.72rem;color:var(--moderate)">${fmt(v.vulnerable)} vulnerable</div></div>
-        <div class="card-sm" style="padding:10px"><div style="font-size:.7rem;color:var(--muted)">SHELTER GAP</div><div style="font-weight:700;font-size:1rem;color:${gap>0?'var(--high)':'var(--low)'}">${gap>0?'+'+fmt(gap)+' overflow':'✓ Adequate'}</div><div style="font-size:.72rem;color:var(--muted)">${v.shelter}</div></div>
-        <div class="card-sm" style="padding:10px"><div style="font-size:.7rem;color:var(--muted)">ROAD STATUS</div><div style="font-weight:700;font-size:.9rem" class="${roadClass(v.road)}">${v.road}</div><div style="font-size:.72rem;color:var(--muted)">${v.channel} · ${v.no_phone_pct}% no phone</div></div>
-      </div>
-      <div style="margin-top:12px;background:rgba(0,0,0,.2);border-radius:8px;padding:12px;font-size:.82rem;line-height:1.6">
-        <b>📋 Recommended Action:</b> ${v.alert.action}<br>
-        <span style="color:var(--muted);font-size:.78rem">${v.alert.deliver}</span>
-      </div>
-    </div>`;
-  }).join('');
-}
-
-// ── VILLAGE TABLE ─────────────────────────────────────────────────────────────
-function buildVillageTable(){
-  const tbody = document.getElementById('village-tbody');
-  tbody.innerHTML = villages.map((v,i)=>{
-    const gap = Math.max(v.population - v.shelter_cap, 0);
-    const cls = levelClass(v.alert.level);
-    return `<tr class="${i<3?'rank-'+(i+1):''}">
-      <td class="rank">${i+1}</td>
-      <td class="vname">${v.name}</td>
-      <td style="color:var(--muted)">${v.gauge}</td>
-      <td class="score-cell">
-        ${v.risk.toFixed(0)}
-        <div class="bar-wrap" style="width:80px;margin-top:3px"><div class="bar-fill bar-${barClass(v.risk)?barClass(v.risk):'low'}" style="width:${Math.min(v.risk,100)}%"></div></div>
-      </td>
-      <td class="score-cell">${v.priority.toFixed(0)}</td>
-      <td class="score-cell" style="color:var(--accent)">${v.combined.toFixed(1)}</td>
-      <td>${fmt(v.population)}</td>
-      <td style="color:var(--moderate)">${fmt(v.vulnerable)}</td>
-      <td style="color:${gap>500?'var(--high)':gap>0?'var(--moderate)':'var(--low)'}">${gap>0?'+'+fmt(gap):'✓'}</td>
-      <td class="${roadClass(v.road)}">${v.road}</td>
-      <td style="color:var(--muted)">${v.channel}</td>
-      <td><span class="badge badge-${cls}">${v.alert.level}</span></td>
-      <td><button onclick="showAlert('${v.id}')" style="background:rgba(59,130,246,.15);border:1px solid rgba(59,130,246,.3);color:var(--accent);padding:5px 12px;border-radius:6px;cursor:pointer;font-size:.75rem">View Alert</button></td>
-    </tr>`;
-  }).join('');
-}
-
-let openAlertId = null;
-function showAlert(vid){
-  const panel = document.getElementById('alert-detail');
-  const v = villages.find(x=>x.id===vid);
-  if(!v) return;
-  if(openAlertId===vid){panel.classList.remove('open');openAlertId=null;return;}
-  openAlertId = vid;
-  const cls = levelClass(v.alert.level);
-  panel.innerHTML = `<div class="alert-header lvl-${cls}" onclick="showAlert('${v.id}')">
-    <div><span class="badge badge-${cls}" style="margin-bottom:6px">${v.alert.level} ALERT</span>
-    <div style="font-size:1rem;font-weight:700;margin-top:4px">${v.name} — ${v.station}</div></div>
-    <button class="close-btn">✕</button>
-  </div>
-  <div class="alert-body">
-    <div class="alert-section"><div class="alert-label">📍 What & When</div><div class="alert-text">${v.alert.what}</div></div>
-    <div class="alert-section"><div class="alert-label">🎯 Why Priority</div><div class="alert-text">${v.alert.why}</div></div>
-    <div class="alert-section"><div class="alert-label">⚡ Recommended Action</div><div class="alert-action">${v.alert.action}</div></div>
-    <div class="alert-section"><div class="alert-label">📡 Delivery</div><div class="alert-deliver">${v.alert.deliver}</div></div>
-  </div>`;
-  panel.classList.add('open');
-  panel.scrollIntoView({behavior:'smooth',block:'nearest'});
-}
-
-// ── GAUGE HISTORY CHART ───────────────────────────────────────────────────────
-let histChart = null;
-let selectedGauge = 'G01';
-let chartType = 'level';
-
-function buildGaugeSelector(){
-  const gs = document.getElementById('gauge-selector');
-  gs.innerHTML = gauges.map(g=>`<div class="gauge-card ${g.id===selectedGauge?'selected':''}" onclick="selectGauge('${g.id}',this)">
-    <div class="gauge-name">${g.name}</div><div class="gauge-id">${g.id}</div>
-    ${riskBadge(g.risk)}
-  </div>`).join('');
-}
-
-function openGaugeTab(gid){
-  selectedGauge = gid;
-  document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
-  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
-  document.getElementById('tab-gauges').classList.add('active');
-  document.querySelectorAll('.tab-btn')[2].classList.add('active');
-  buildGaugeSelector();
-  renderChart();
-}
-
-function selectGauge(gid, el){
-  selectedGauge = gid;
-  document.querySelectorAll('#gauge-selector .gauge-card').forEach(c=>c.classList.remove('selected'));
-  el.classList.add('selected');
-  renderChart();
-}
-
-function setChartType(type, el){
-  chartType = type;
-  document.querySelectorAll('.chart-tab').forEach(t=>t.classList.remove('active'));
-  el.classList.add('active');
-  renderChart();
-}
-
-function renderChart(){
-  const d = chart[selectedGauge];
-  if(!d) return;
-  const ctx = document.getElementById('history-chart').getContext('2d');
-  if(histChart) histChart.destroy();
-
-  let datasets = [];
-  const gInfo = gauges.find(g=>g.id===selectedGauge);
-
-  if(chartType==='level'){
-    datasets = [
-      {label:'River Level (m)', data:d.levels, borderColor:'#3b82f6', backgroundColor:'rgba(59,130,246,.1)', fill:true, tension:.3, pointRadius:2, pointHoverRadius:5},
-      {label:'Danger Level', data:d.dates.map(()=>d.danger), borderColor:'rgba(239,68,68,.7)', borderDash:[6,4], pointRadius:0, fill:false},
-      {label:'Warning Level', data:d.dates.map(()=>d.warning), borderColor:'rgba(245,158,11,.5)', borderDash:[4,4], pointRadius:0, fill:false},
-    ];
-    // Add flood markers
-    const floodData = d.levels.map((v,i)=>d.flood[i]==='Y'?v:null);
-    datasets.push({label:'Flood Event', data:floodData, borderColor:'#ef4444', backgroundColor:'#ef4444', pointRadius:6, showLine:false});
-  } else if(chartType==='rainfall'){
-    datasets = [{label:'Rainfall 24h (mm)', data:d.rainfall, backgroundColor:'rgba(99,102,241,.6)', borderColor:'rgba(99,102,241,.8)', type:'bar'}];
-  } else {
-    const riskCapped = d.risk.map(r=>Math.max(0,Math.min(100,r)));
-    datasets = [
-      {label:'Risk Score', data:riskCapped, borderColor:'#f59e0b', backgroundColor:'rgba(245,158,11,.1)', fill:true, tension:.3, pointRadius:2},
-      {label:'Alert Threshold (45)', data:d.dates.map(()=>45), borderColor:'rgba(239,68,68,.5)', borderDash:[6,4], pointRadius:0, fill:false},
-    ];
-  }
-
-  histChart = new Chart(ctx, {
-    type: chartType==='rainfall'?'bar':'line',
-    data: {labels: d.dates, datasets},
-    options:{
-      responsive:true, maintainAspectRatio:false,
-      plugins:{legend:{labels:{color:'#7a8fa6',font:{size:11}}}, tooltip:{mode:'index',intersect:false}},
-      scales:{
-        x:{ticks:{color:'#7a8fa6',maxRotation:45,font:{size:10}}, grid:{color:'rgba(36,48,71,.4)'}},
-        y:{ticks:{color:'#7a8fa6',font:{size:10}}, grid:{color:'rgba(36,48,71,.4)'}}
-      }
-    }
-  });
-}
-
-// ── MODEL METRICS ─────────────────────────────────────────────────────────────
-function buildMetrics(){
-  const {tp,fp,fn,tn,precision,recall,f1,threshold} = metrics;
-  const items = [
-    {num:recall*100+'%', label:'Recall (True Flood Rate)', color:'var(--low)', note:'86% — catches 6 of 7 floods'},
-    {num:precision*100+'%', label:'Precision', color:'var(--moderate)', note:'35% — officer reviews flagged'},
-    {num:f1, label:'F1 Score', color:'var(--accent)', note:'Balance metric'},
-    {num:threshold, label:'Score Threshold', color:'var(--accent2)', note:'Risk ≥ 45 = Predicted flood'},
-    {num:tp, label:'True Positives', color:'var(--low)', note:'Floods correctly caught'},
-    {num:fp, label:'False Positives', color:'var(--moderate)', note:'False alarms (officer filters)'},
-    {num:fn, label:'False Negatives', color:'var(--high)', note:'Missed floods (only 1)'},
-    {num:tn, label:'True Negatives', color:'var(--muted)', note:'Correct "no flood" calls'},
-  ];
-  document.getElementById('metric-grid').innerHTML = items.map(m=>`
-    <div class="metric-card">
-      <div class="metric-num" style="color:${m.color}">${m.num}</div>
-      <div class="metric-label">${m.label}</div>
-      <div style="font-size:.7rem;color:var(--muted);margin-top:4px">${m.note}</div>
-    </div>`).join('');
-}
-
-function buildQualityTable(){
-  const rows = [
-    ['3 duplicate rows found','Dropped earlier duplicate (kept latest per gauge-date)','✓ Fixed'],
-    ['River Level = 99.9m (G05, Aug 1)','Sensor malfunction — replaced with interpolated value','✓ Fixed'],
-    ['Soil Moisture = 140% (G05, Aug 21)','Impossible reading — replaced with interpolated value','✓ Fixed'],
-    ['Negative rainfall: −4.2mm (G04, Jul 13)','Physical impossibility — set to 0','✓ Fixed'],
-    ['6 missing Rainfall_mm_24h values','Filled with column median (0.3mm)','✓ Fixed'],
-    ['3 missing River_Level_m values','Linear interpolation within gauge group','✓ Fixed'],
-    ['Stuck sensor readings (G01, G04 — 4 consecutive same values)','Flagged but retained — could be stable low-flow periods','⚠️ Flagged'],
-    ['Class imbalance: 35 floods vs 328 non-flood (9.6% positive rate)','Used recall-weighted threshold; do not use accuracy alone','⚠️ Noted'],
-  ];
-  document.getElementById('quality-table').innerHTML = rows.map(r=>`<tr>
-    <td style="color:var(--muted)">${r[0]}</td>
-    <td>${r[1]}</td>
-    <td class="${r[2].includes('Fixed')?'q-fix':'q-flag'}">${r[2]}</td>
-  </tr>`).join('');
-}
-
-// ── INIT ─────────────────────────────────────────────────────────────────────
-buildDashboard();
-buildVillageTable();
-buildGaugeSelector();
-renderChart();
-buildMetrics();
-buildQualityTable();
-</script>
-</body>
-</html>
