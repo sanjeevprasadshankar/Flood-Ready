@@ -1,0 +1,1035 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0b0f19">
+<meta name="color-scheme" content="dark">
+<title>FloodReady – Early Warning &amp; Relief Prioritisation</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..800&family=DM+Mono:wght@400;500&family=Instrument+Sans:wght@400..700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0b0f19;--surface:#111829;--card:#171f33;--card2:#1e2842;--border:#26324d;
+  --text:#e8eef7;--muted:#8a9bb3;--accent:#4d8dff;--accent2:#7a7cff;--teal:#2dd4bf;
+  --low:#22c55e;--moderate:#f59e0b;--high:#ef4444;--critical:#dc2626;
+  --radius:16px;--nav-h:64px;
+  --ease:cubic-bezier(.2,.8,.2,1);
+  --font-display:'Bricolage Grotesque','Trebuchet MS','Gill Sans',sans-serif;
+  --font-body:'Instrument Sans','Helvetica Neue',Arial,sans-serif;
+  --font-mono:'DM Mono',ui-monospace,Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html{-webkit-text-size-adjust:100%;color-scheme:dark}
+html.lock,html.lock body{overflow:hidden}
+body{
+  background:var(--bg);color:var(--text);font-family:var(--font-body);font-size:15px;line-height:1.5;
+  min-height:100vh;min-height:100dvh;-webkit-font-smoothing:antialiased;overscroll-behavior-y:none;
+  background-image:radial-gradient(900px 420px at 85% -10%,rgba(77,141,255,.14),transparent 60%),
+                   radial-gradient(700px 420px at -10% 8%,rgba(45,212,191,.08),transparent 60%);
+  background-attachment:fixed;
+}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.mono{font-family:var(--font-mono)}
+.muted{color:var(--muted)}
+.sm{font-size:.78rem}
+
+/* ───────── motion primitives ───────── */
+@keyframes rise{from{opacity:0;transform:translateY(16px)}}
+@keyframes growX{from{transform:scaleX(0)}}
+@keyframes ringIn{from{stroke-dashoffset:var(--circ)}}
+@keyframes bob{0%,100%{transform:translateY(0) rotate(-5deg)}50%{transform:translateY(-3px) rotate(5deg)}}
+@keyframes ripple{from{transform:scale(1);opacity:.6}to{transform:scale(3.2);opacity:0}}
+@keyframes waveMove{to{transform:translateX(-600px)}}
+@keyframes nudgeY{50%{transform:translateY(6px)}}
+@keyframes nudgeX{50%{transform:translateX(6px)}}
+@keyframes pop{from{opacity:0;transform:scale(.6)}}
+.reveal{animation:rise .6s var(--ease) backwards;animation-delay:calc(var(--i,0)*55ms)}
+
+/* ───────── header ───────── */
+.app-header{
+  position:sticky;top:0;z-index:50;display:flex;align-items:center;gap:12px;
+  padding:calc(10px + env(safe-area-inset-top)) 16px 10px;
+  background:rgba(11,15,25,.82);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  border-bottom:1px solid var(--border);
+}
+.logo{width:40px;height:40px;border-radius:12px;flex:none;display:grid;place-items:center;font-size:22px;
+  background:linear-gradient(135deg,var(--accent),var(--accent2));box-shadow:0 6px 18px rgba(77,141,255,.35)}
+.logo span{display:block;animation:bob 3.2s ease-in-out infinite}
+.header-title{min-width:0}
+.header-title h1{font-family:var(--font-display);font-size:1.25rem;font-weight:700;letter-spacing:-.01em;line-height:1.1}
+.header-title p{font-size:.76rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.header-right{margin-left:auto;display:flex;align-items:center;gap:9px;flex:none;font-size:.76rem;color:var(--muted)}
+.live{position:relative;width:10px;height:10px}
+.live::before,.live::after{content:'';position:absolute;inset:0;border-radius:50%;background:var(--low)}
+.live::after{animation:ripple 2s ease-out infinite}
+.sub-full,.lu-full{display:none}
+
+/* ───────── nav (bottom bar on phones, top tabs on desktop) ───────── */
+.nav{
+  position:fixed;left:0;right:0;bottom:0;z-index:60;display:flex;
+  padding:6px 8px calc(6px + env(safe-area-inset-bottom));
+  background:rgba(17,24,41,.9);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+  border-top:1px solid var(--border);
+}
+.nav-ind{
+  position:absolute;top:6px;bottom:calc(6px + env(safe-area-inset-bottom));left:0;
+  width:var(--iw,0px);transform:translateX(var(--ix,0px));border-radius:14px;
+  background:rgba(77,141,255,.17);pointer-events:none;
+  transition:transform .5s cubic-bezier(.34,1.4,.5,1),width .45s var(--ease);
+}
+.tab-btn{
+  position:relative;flex:1;min-width:0;min-height:50px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
+  padding:6px 2px;background:none;border:0;color:var(--muted);font-size:.67rem;font-weight:600;cursor:pointer;
+  transition:color .25s,transform .15s;
+}
+.tab-btn:active{transform:scale(.92)}
+.tab-btn .ti{font-size:1.28rem;line-height:1;filter:grayscale(.7) opacity(.75);transition:transform .4s cubic-bezier(.34,1.56,.64,1),filter .3s}
+.tab-btn.active{color:var(--text)}
+.tab-btn.active .ti{transform:translateY(-1px) scale(1.18);filter:none}
+.tl-l{display:none}
+
+/* ───────── layout ───────── */
+.wrap{max-width:1200px;margin:0 auto;padding:16px 16px calc(var(--nav-h) + 30px + env(safe-area-inset-bottom))}
+.tab-content{display:none}
+.tab-content.active{display:block}
+.section-title{font-family:var(--font-display);font-size:1.08rem;font-weight:700;letter-spacing:-.005em;margin:4px 0 12px;display:flex;align-items:center;gap:8px}
+.section-title::after{content:'';flex:1;height:1px;background:linear-gradient(90deg,var(--border),transparent)}
+.section-title small{font-family:var(--font-body);font-weight:500;font-size:.74rem;color:var(--muted)}
+.hint{font-size:.82rem;color:var(--muted);margin:-4px 0 12px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px}
+.card-title{font-family:var(--font-display);font-size:.98rem;font-weight:700;margin-bottom:12px}
+.grid2{display:grid;grid-template-columns:1fr;gap:14px}
+
+/* ───────── badges / chips / bars / buttons ───────── */
+.badge{display:inline-flex;align-items:center;gap:4px;font-size:.72rem;font-weight:700;padding:4px 10px;border-radius:999px;letter-spacing:.03em;white-space:nowrap}
+.badge-low{background:rgba(34,197,94,.15);color:var(--low)}
+.badge-moderate{background:rgba(245,158,11,.15);color:var(--moderate)}
+.badge-high{background:rgba(239,68,68,.15);color:var(--high)}
+.badge-critical{background:rgba(220,38,38,.25);color:#ff6b6b}
+.chips{display:flex;flex-wrap:wrap;gap:6px 12px;margin-top:10px;font-size:.78rem;color:var(--muted)}
+.chip{display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
+.chip.warn,.road-seasonal{color:var(--moderate)}
+.chip.bad,.road-cutoff{color:var(--high)}
+.chip.good,.road-all{color:var(--low)}
+.road-cutoff{font-weight:600}
+.bar-wrap{background:#1e293b;border-radius:99px;height:7px;overflow:hidden;margin-top:6px}
+.bar-wrap.thin{height:4px;margin-top:4px}
+.bar-fill{height:100%;border-radius:99px;transform-origin:left center;animation:growX 1s var(--ease) backwards;animation-delay:calc(var(--i,0)*55ms + 200ms)}
+.bar-low{background:var(--low)}.bar-moderate{background:var(--moderate)}.bar-high{background:var(--high)}.bar-critical{background:var(--critical)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:46px;padding:0 18px;border-radius:12px;
+  border:1px solid rgba(77,141,255,.35);background:rgba(77,141,255,.14);color:var(--accent);font-weight:700;font-size:.9rem;cursor:pointer;
+  transition:transform .15s,background .2s}
+.btn:active{transform:scale(.96)}
+
+/* ───────── hero ───────── */
+.hero{position:relative;overflow:hidden;border:1px solid rgba(77,141,255,.3);border-radius:22px;padding:18px 16px 54px;margin-bottom:22px;
+  background:linear-gradient(160deg,rgba(77,141,255,.18),rgba(122,124,255,.08) 55%,rgba(45,212,191,.07))}
+.hero-top{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:16px;position:relative;z-index:1}
+.hero-eyebrow{font-size:.74rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.hero-stats{display:grid;grid-template-columns:1fr 1fr;gap:16px 10px;position:relative;z-index:1}
+.sb-val{font-family:var(--font-display);font-size:1.9rem;font-weight:700;line-height:1.05;letter-spacing:-.02em}
+.sb-label{font-size:.76rem;color:var(--muted);margin-top:2px}
+.wave{position:absolute;left:0;bottom:-1px;width:calc(100% + 600px);height:36px;background-repeat:repeat-x;background-size:600px 100%;pointer-events:none;will-change:transform}
+.wave.w1{animation:waveMove 9s linear infinite;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 600 36' preserveAspectRatio='none'%3E%3Cpath d='M0 18Q75 0 150 18T300 18T450 18T600 18V36H0Z' fill='%234d8dff' fill-opacity='.3'/%3E%3C/svg%3E")}
+.wave.w2{bottom:-8px;animation:waveMove 15s linear infinite reverse;opacity:.9;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 600 36' preserveAspectRatio='none'%3E%3Cpath d='M0 18Q75 36 150 18T300 18T450 18T600 18V36H0Z' fill='%232dd4bf' fill-opacity='.22'/%3E%3C/svg%3E")}
+
+/* ───────── gauge cards ───────── */
+.gauge-list{display:grid;grid-template-columns:1fr;gap:10px;margin-bottom:26px}
+.gauge-card{display:flex;gap:14px;align-items:center;width:100%;text-align:left;cursor:pointer;
+  background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:14px;
+  transition:transform .18s var(--ease),border-color .2s}
+.gauge-card:active{transform:scale(.98)}
+.ring-wrap{position:relative;width:66px;height:66px;flex:none}
+.ring{width:100%;height:100%;display:block}
+.ring-bg{fill:none;stroke:#1f2a44;stroke-width:6}
+.ring-fg{fill:none;stroke-width:6;stroke-linecap:round;stroke-dasharray:var(--circ);stroke-dashoffset:var(--off);
+  animation:ringIn 1.2s var(--ease) backwards;animation-delay:calc(var(--i,0)*55ms + 150ms)}
+.ring-low{stroke:var(--low)}.ring-moderate{stroke:var(--moderate)}.ring-high{stroke:var(--high)}.ring-critical{stroke:var(--critical)}
+.ring-txt{position:absolute;inset:0;display:grid;place-content:center;text-align:center;font-family:var(--font-mono);font-weight:500;font-size:1rem;line-height:1}
+.ring-txt small{font-size:.54rem;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;margin-top:2px}
+.gc-main{flex:1;min-width:0;display:block}
+.gc-top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+.gauge-name{font-family:var(--font-display);font-weight:600;font-size:1.02rem;line-height:1.2;display:block}
+.gauge-id{font-size:.72rem;color:var(--muted);font-family:var(--font-mono);display:block}
+.gc-level{display:flex;justify-content:space-between;align-items:baseline;font-size:.78rem;color:var(--muted);margin-top:8px}
+.gc-level b{color:var(--text);font-family:var(--font-mono);font-weight:500;font-size:.98rem}
+
+/* ───────── top villages ───────── */
+.tv{margin-bottom:12px;border-left:4px solid var(--lvl,var(--low))}
+.tv-head{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+.tv-right{display:flex;flex-direction:column;align-items:flex-end;gap:4px}
+.eyebrow{font-size:.7rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.tv-name{font-family:var(--font-display);font-size:1.25rem;font-weight:700;line-height:1.2}
+.mini-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:14px}
+.mini{background:rgba(0,0,0,.24);border-radius:12px;padding:10px}
+.mini-l{font-size:.62rem;color:var(--muted);font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+.mini-v{font-family:var(--font-display);font-weight:700;font-size:1.08rem;margin-top:2px;line-height:1.2}
+.mini-s{font-size:.72rem;color:var(--muted);overflow-wrap:anywhere}
+.shelter-line{margin-top:12px}
+.action-box{margin-top:10px;background:rgba(77,141,255,.1);border:1px solid rgba(77,141,255,.22);border-radius:12px;padding:12px;font-size:.88rem;line-height:1.55}
+
+/* ───────── village list / table ───────── */
+.vlist{display:grid;grid-template-columns:1fr;gap:10px}
+.vcard{display:flex;gap:12px;align-items:flex-start;cursor:pointer;border-left:4px solid var(--lvl,var(--low));padding:14px;transition:transform .18s var(--ease),border-color .2s}
+.vcard:active{transform:scale(.985)}
+.vc-rank{flex:none;width:36px;height:36px;border-radius:12px;display:grid;place-items:center;background:var(--card2);font-family:var(--font-display);font-weight:700;color:var(--muted)}
+.vc-rank.top{background:rgba(77,141,255,.18);color:var(--accent)}
+.vc-main{flex:1;min-width:0}
+.vc-top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+.vname{font-family:var(--font-display);font-weight:600;font-size:1.05rem;line-height:1.2}
+.scores{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:12px}
+.sc-l{font-size:.62rem;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;font-weight:700}
+.sc-v{font-family:var(--font-mono);font-size:1.02rem;font-weight:500}
+.sc-v.accent{color:var(--accent)}
+.vt-wrap{display:none;overflow-x:auto;border:1px solid var(--border);border-radius:var(--radius);background:var(--card)}
+table{width:100%;border-collapse:collapse;font-size:.84rem}
+th{background:#0f1626;color:var(--muted);font-weight:700;padding:11px 14px;text-align:left;font-size:.7rem;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--border);white-space:nowrap}
+td{padding:11px 14px;border-bottom:1px solid rgba(38,50,77,.5);vertical-align:middle}
+tbody tr{cursor:pointer;transition:background .2s}
+tbody tr:hover td{background:rgba(77,141,255,.06)}
+.rank{font-weight:700;color:var(--muted);white-space:nowrap}
+.score-cell{font-family:var(--font-mono);font-weight:500}
+
+/* ───────── bottom sheet ───────── */
+.backdrop{position:fixed;inset:0;z-index:90;background:rgba(3,6,14,.62);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);
+  opacity:0;visibility:hidden;transition:opacity .35s,visibility 0s .35s}
+.backdrop.open{opacity:1;visibility:visible;transition:opacity .35s}
+.sheet{
+  position:fixed;left:0;right:0;bottom:0;z-index:100;max-width:620px;margin:0 auto;max-height:88vh;max-height:88dvh;
+  display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--border);border-bottom:0;border-radius:26px 26px 0 0;
+  box-shadow:0 -24px 70px rgba(0,0,0,.55);padding-bottom:env(safe-area-inset-bottom);
+  transform:translateY(105%);visibility:hidden;transition:transform .5s cubic-bezier(.32,.72,0,1),visibility 0s .5s;
+}
+.sheet.open{transform:none;visibility:visible;transition:transform .5s cubic-bezier(.32,.72,0,1),visibility 0s}
+.sheet.dragging{transition:none}
+.sheet-drag{touch-action:none;flex:none}
+.grab{width:44px;height:5px;border-radius:9px;background:var(--border);margin:10px auto 6px}
+.sheet-head{padding:6px 18px 14px;display:flex;justify-content:space-between;align-items:flex-start;gap:12px;border-bottom:1px solid var(--border)}
+.sheet-title{font-family:var(--font-display);font-size:1.35rem;font-weight:700;line-height:1.2;margin-top:6px}
+.close-btn{flex:none;width:42px;height:42px;border-radius:50%;background:var(--card);border:1px solid var(--border);color:var(--muted);font-size:1rem;cursor:pointer;display:grid;place-items:center;transition:transform .15s}
+.close-btn:active{transform:scale(.9)}
+.sheet-body{padding:16px 18px 24px;overflow-y:auto;overscroll-behavior:contain}
+.sec{margin-bottom:16px}
+.sec:last-child{margin-bottom:0}
+.sheet.open .sec{animation:rise .5s var(--ease) backwards;animation-delay:calc(var(--i,0)*70ms + 200ms)}
+.sec-label{font-size:.7rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:5px}
+.sec-text{font-size:.92rem;line-height:1.6}
+
+/* ───────── gauge history ───────── */
+.chip-row{display:flex;gap:8px;overflow-x:auto;scroll-snap-type:x proximity;margin:0 -16px 8px;padding:2px 16px 10px;scrollbar-width:none}
+.chip-row::-webkit-scrollbar{display:none}
+.gchip{flex:none;scroll-snap-align:start;min-width:132px;display:flex;flex-direction:column;gap:2px;text-align:left;padding:10px 14px;
+  border-radius:14px;background:var(--card);border:1px solid var(--border);cursor:pointer;transition:border-color .25s,background .25s,transform .15s}
+.gchip:active{transform:scale(.96)}
+.gchip.selected{border-color:var(--accent);background:rgba(77,141,255,.13)}
+.gchip .gname{font-weight:600;font-size:.88rem}
+.gchip .gid{font-family:var(--font-mono);font-size:.72rem;color:var(--muted)}
+.seg{position:relative;display:flex;padding:4px;background:var(--surface);border:1px solid var(--border);border-radius:13px;margin-bottom:14px}
+.seg button{position:relative;z-index:1;flex:1;min-height:40px;border:0;background:none;color:var(--muted);font-size:.84rem;font-weight:600;border-radius:9px;cursor:pointer;transition:color .2s}
+.seg button.active{color:var(--text)}
+.seg-ind{position:absolute;top:4px;bottom:4px;left:4px;width:calc((100% - 8px)/3);border-radius:9px;background:rgba(77,141,255,.2);border:1px solid rgba(77,141,255,.38);
+  transform:translateX(calc(var(--si,0)*100%));transition:transform .45s cubic-bezier(.34,1.3,.5,1)}
+.chart-area{position:relative;height:clamp(250px,66vw,330px)}
+.chart-host{position:absolute;inset:0;touch-action:pan-y;-webkit-user-select:none;user-select:none;cursor:crosshair}
+.chart-host svg{display:block;overflow:visible}
+.ch-grid{stroke:rgba(38,50,77,.65);stroke-width:1}
+.ch-tick{fill:#8a9bb3;font:10px var(--font-mono)}
+.ch-line{fill:none;stroke-width:2.5;stroke-linejoin:round;stroke-linecap:round;stroke-dasharray:1 1;animation:draw 1.3s var(--ease) backwards}
+.ch-area{animation:fadeIn 1s .35s backwards}
+.ch-bar{transform-box:fill-box;transform-origin:50% 100%;animation:growY .7s var(--ease) backwards;animation-delay:calc(var(--i,0)*9ms)}
+.ch-flood{transform-box:fill-box;transform-origin:center;animation:pop .5s var(--ease) backwards;animation-delay:.9s}
+@keyframes draw{from{stroke-dashoffset:1}}
+@keyframes fadeIn{from{opacity:0}}
+@keyframes growY{from{transform:scaleY(0)}}
+.chart-tip{position:absolute;z-index:3;top:4px;pointer-events:none;background:rgba(11,15,25,.96);border:1px solid var(--border);border-radius:10px;padding:8px 10px;font-size:.78rem;line-height:1.5;white-space:nowrap;box-shadow:0 8px 24px rgba(0,0,0,.45)}
+.chart-tip[hidden]{display:none}
+.chart-tip .mono{font-weight:500}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:10px;font-size:.74rem;color:var(--muted)}
+.lg{display:inline-flex;align-items:center;gap:6px}
+.lg i{display:inline-block;width:14px;height:3px;border-radius:2px;background:currentColor}
+.lg i.dash{height:2px;background:repeating-linear-gradient(90deg,currentColor 0 4px,transparent 4px 7px)}
+.lg i.dot{width:9px;height:9px;border-radius:50%}
+.lg i.sq{width:10px;height:10px;border-radius:3px}
+.stat-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px}
+.stat{background:rgba(0,0,0,.22);border-radius:12px;padding:10px 12px}
+.stat-l{font-size:.64rem;color:var(--muted);font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+.stat-v{font-family:var(--font-mono);font-size:1.1rem;font-weight:500;margin-top:2px}
+
+/* ───────── model ───────── */
+.metric-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.metric-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:14px 10px;text-align:center}
+.metric-emoji{font-size:1.2rem;display:block;margin-bottom:4px}
+.metric-num{font-family:var(--font-display);font-size:2.1rem;font-weight:800;line-height:1;letter-spacing:-.02em}
+.metric-label{font-size:.68rem;color:var(--muted);margin-top:6px;text-transform:uppercase;letter-spacing:.06em;font-weight:700}
+.metric-note{font-size:.74rem;color:var(--muted);margin-top:4px;line-height:1.35}
+.feat{margin-bottom:14px}
+.feat-top{display:flex;justify-content:space-between;gap:8px;font-size:.9rem;font-weight:600}
+.feat-top .pts{font-family:var(--font-mono);font-weight:500;color:var(--accent)}
+.feat-desc{font-size:.76rem;color:var(--muted)}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:8px 14px;font-size:.86rem;margin-top:16px;padding-top:14px;border-top:1px solid var(--border)}
+.kv dt{color:var(--muted);font-weight:600}
+.q-item{display:flex;gap:12px;padding:12px 0;border-bottom:1px solid var(--border)}
+.q-item:last-child{border-bottom:0;padding-bottom:0}
+.q-item:first-child{padding-top:0}
+.q-ico{font-size:1.2rem;flex:none;width:28px;text-align:center}
+.q-issue{font-weight:600;font-size:.88rem;line-height:1.35}
+.q-fix-t{color:var(--muted);font-size:.8rem;margin-top:2px}
+.q-status{display:inline-block;margin-top:6px;font-size:.7rem;font-weight:700;padding:2px 9px;border-radius:99px}
+.q-fix{background:rgba(34,197,94,.14);color:var(--low)}
+.q-flag{background:rgba(245,158,11,.14);color:var(--moderate)}
+.formula{font-family:var(--font-mono);font-size:.88rem;background:rgba(0,0,0,.25);border:1px solid var(--border);border-radius:12px;padding:12px 14px;line-height:1.6}
+.split{display:flex;height:10px;border-radius:99px;overflow:hidden;margin:12px 0 6px;background:#1e293b}
+.split i{display:block;transform-origin:left center;animation:growX 1.1s var(--ease) backwards;animation-delay:.4s}
+.split .a{width:60%;background:var(--accent)}.split .b{width:40%;background:var(--teal)}
+.split-l{display:flex;justify-content:space-between;font-size:.72rem;color:var(--muted)}
+.plist{list-style:none;margin-top:14px;display:grid;gap:10px;font-size:.88rem;color:var(--muted)}
+.plist li{display:flex;gap:10px}
+.plist li b{color:var(--text)}
+.plist .e{flex:none;width:26px;text-align:center}
+
+/* ───────── architecture ───────── */
+.arch-wrap{display:grid;grid-template-columns:1fr;gap:0;margin-bottom:18px}
+.arch-col{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px}
+.arch-col-title{font-family:var(--font-display);font-size:1rem;font-weight:700;margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid var(--border)}
+.arch-item{display:flex;gap:12px;margin-bottom:14px}
+.arch-item:last-child{margin-bottom:0}
+.arch-icon{font-size:1.35rem;flex:none;width:30px;text-align:center}
+.arch-item-title{font-size:.9rem;font-weight:600}
+.arch-item-desc{font-size:.8rem;color:var(--muted);margin-top:2px;line-height:1.45}
+.arch-arrow{display:grid;place-items:center;padding:8px 0;font-size:1.5rem}
+.arch-arrow span{display:block;animation:nudgeY 1.7s ease-in-out infinite}
+.arch-arrow .ax{display:none}
+.scale-grid{display:grid;grid-template-columns:1fr;gap:10px}
+.scale-card{background:rgba(0,0,0,.22);border-radius:14px;padding:14px}
+.scale-card .e{font-size:1.4rem}
+.scale-card h4{font-size:.9rem;font-weight:600;margin:6px 0 4px}
+.scale-card p{font-size:.8rem;color:var(--muted);line-height:1.5}
+
+/* ───────── responsible AI (accordion) ───────── */
+.rai-grid{display:grid;grid-template-columns:1fr;gap:10px}
+.rai-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;align-self:start;transition:border-color .3s}
+.rai-card.open{border-color:rgba(77,141,255,.4)}
+.rai-btn{width:100%;display:flex;align-items:center;gap:12px;min-height:60px;padding:12px 16px;background:none;border:0;text-align:left;cursor:pointer}
+.rai-icon{font-size:1.6rem;flex:none}
+.rai-title{flex:1;font-family:var(--font-display);font-size:1rem;font-weight:600;line-height:1.25}
+.rai-chev{color:var(--muted);font-size:1rem;transition:transform .4s var(--ease)}
+.rai-card.open .rai-chev{transform:rotate(180deg)}
+.rai-panel{display:grid;grid-template-rows:0fr;transition:grid-template-rows .45s var(--ease)}
+.rai-card.open .rai-panel{grid-template-rows:1fr}
+.rai-panel>div{overflow:hidden}
+.rai-text{padding:0 16px 16px 16px;font-size:.88rem;color:var(--muted);line-height:1.65}
+
+/* ───────── responsive ───────── */
+@media(min-width:640px){
+  .sub-short,.lu-short{display:none}.sub-full,.lu-full{display:inline}
+  .hero-stats{grid-template-columns:repeat(4,1fr)}
+  .gauge-list,.vlist,.rai-grid{grid-template-columns:1fr 1fr}
+  .scale-grid{grid-template-columns:repeat(3,1fr)}
+  .stat-row{grid-template-columns:repeat(4,1fr)}
+}
+@media(min-width:900px){
+  body{font-size:16px}
+  .app-header{padding:12px 24px}
+  .nav{position:relative;bottom:auto;left:auto;right:auto;padding:0 24px;gap:4px;background:var(--surface);backdrop-filter:none;-webkit-backdrop-filter:none;border-top:0;border-bottom:1px solid var(--border)}
+  .nav-ind{top:auto;bottom:0;height:2px;border-radius:2px;background:var(--accent)}
+  .tab-btn{flex:none;flex-direction:row;gap:8px;padding:14px 16px;font-size:.88rem;min-height:0}
+  .tab-btn .ti{font-size:1.1rem}
+  .tl-s{display:none}.tl-l{display:inline}
+  .wrap{padding:24px 24px 56px}
+  .card{padding:20px}
+  .grid2{grid-template-columns:1fr 1fr}
+  .metric-grid{grid-template-columns:repeat(4,1fr)}
+  .chip-row{margin:0 0 8px;padding:2px 0 10px;flex-wrap:wrap}
+  .chart-area{height:360px}
+  .arch-wrap{grid-template-columns:1fr auto 1fr auto 1fr;align-items:stretch}
+  .arch-arrow{padding:0 10px}
+  .arch-arrow .ay{display:none}.arch-arrow .ax{display:block;animation:nudgeX 1.7s ease-in-out infinite}
+  .sheet{bottom:50%;transform:translateY(calc(50% + 60vh));border-bottom:1px solid var(--border);border-radius:26px}
+  .sheet.open{transform:translateY(50%)}
+  .sheet.dragging{transform:translateY(50%)}
+}
+@media(min-width:1000px){
+  .gauge-list{grid-template-columns:repeat(3,1fr)}
+  .vlist{display:none}.vt-wrap{display:block}
+  .rai-grid{grid-template-columns:1fr 1fr}
+}
+@media(hover:hover){
+  .gauge-card:hover,.vcard:hover{border-color:var(--accent);transform:translateY(-2px)}
+  .gchip:hover{border-color:var(--accent)}
+  .tab-btn:hover{color:var(--text)}
+  .btn:hover{background:rgba(77,141,255,.22)}
+}
+@media(max-width:360px){
+  .sb-val{font-size:1.6rem}
+  .mini-v{font-size:.98rem}
+}
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;animation-delay:0s!important;transition-duration:.01ms!important}
+  .wave{animation:none!important}
+}
+</style>
+</head>
+<body>
+
+<header class="app-header">
+  <div class="logo"><span>🌊</span></div>
+  <div class="header-title">
+    <h1>FloodReady</h1>
+    <p><span class="sub-full">District Early Warning &amp; Relief Prioritisation System</span><span class="sub-short">Early warning &amp; relief priorities</span></p>
+  </div>
+  <div class="header-right">
+    <span class="live" aria-hidden="true"></span>
+    <span><span class="lu-full">Last reading: Aug 29, 2026</span><span class="lu-short">Aug 29</span></span>
+  </div>
+</header>
+
+<nav class="nav" id="nav" role="tablist" aria-label="Sections">
+  <span class="nav-ind" id="nav-ind"></span>
+  <button class="tab-btn active" role="tab" aria-selected="true" data-tab="dashboard"><span class="ti">📊</span><span class="tl-s">Overview</span><span class="tl-l">Dashboard</span></button>
+  <button class="tab-btn" role="tab" aria-selected="false" data-tab="villages"><span class="ti">🏘️</span><span class="tl-s">Villages</span><span class="tl-l">Village Alerts</span></button>
+  <button class="tab-btn" role="tab" aria-selected="false" data-tab="gauges"><span class="ti">📡</span><span class="tl-s">Gauges</span><span class="tl-l">Gauge History</span></button>
+  <button class="tab-btn" role="tab" aria-selected="false" data-tab="model"><span class="ti">🧠</span><span class="tl-s">Model</span><span class="tl-l">Model &amp; Data Quality</span></button>
+  <button class="tab-btn" role="tab" aria-selected="false" data-tab="architecture"><span class="ti">🏗️</span><span class="tl-s">System</span><span class="tl-l">Architecture</span></button>
+  <button class="tab-btn" role="tab" aria-selected="false" data-tab="responsible"><span class="ti">⚖️</span><span class="tl-s">Trust</span><span class="tl-l">Responsible AI</span></button>
+</nav>
+
+<main class="wrap">
+
+  <!-- DASHBOARD -->
+  <section id="tab-dashboard" class="tab-content active" role="tabpanel">
+    <div class="hero reveal">
+      <div class="hero-top">
+        <span class="hero-eyebrow">🌧️ District status</span>
+        <span class="badge badge-low" id="sb-status">✅ ALL CLEAR</span>
+      </div>
+      <div class="hero-stats">
+        <div><div class="sb-val" id="sb-gauges">0</div><div class="sb-label">📡 Gauges active</div></div>
+        <div><div class="sb-val" id="sb-at-risk">0</div><div class="sb-label">🏘️ Villages flagged</div></div>
+        <div><div class="sb-val" id="sb-pop-risk">0</div><div class="sb-label">👥 People at risk</div></div>
+        <div><div class="sb-val" id="sb-max-risk">0</div><div class="sb-label">📈 Highest gauge risk</div></div>
+      </div>
+      <div class="wave w2"></div><div class="wave w1"></div>
+    </div>
+
+    <h2 class="section-title reveal">📡 Gauge status <small>latest readings</small></h2>
+    <div class="gauge-list" id="gauge-grid"></div>
+
+    <h2 class="section-title reveal">🚨 Top priority villages</h2>
+    <div id="top-village-cards"></div>
+  </section>
+
+  <!-- VILLAGES -->
+  <section id="tab-villages" class="tab-content" role="tabpanel">
+    <h2 class="section-title reveal">🏘️ All villages <small>priority ranked</small></h2>
+    <p class="hint reveal">👆 Tap a village to open its full alert.</p>
+    <div class="vlist" id="vlist"></div>
+    <div class="vt-wrap reveal">
+      <table>
+        <thead><tr>
+          <th>#</th><th>Village</th><th>Gauge</th><th>Risk</th><th>Priority</th><th>Combined</th>
+          <th>Population</th><th>Vulnerable</th><th>Shelter gap</th><th>Road</th><th>Channel</th><th>Alert</th><th></th>
+        </tr></thead>
+        <tbody id="village-tbody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- GAUGES -->
+  <section id="tab-gauges" class="tab-content" role="tabpanel">
+    <h2 class="section-title reveal">📡 60-day river history</h2>
+    <div class="chip-row reveal" id="gauge-selector"></div>
+    <div class="card reveal">
+      <div class="seg" id="seg">
+        <span class="seg-ind"></span>
+        <button class="active" data-type="level">🌊 Level</button>
+        <button data-type="rainfall">🌧️ Rain</button>
+        <button data-type="risk">⚠️ Risk</button>
+      </div>
+      <div class="chart-area"><div class="chart-host" id="chart-host"></div><div class="chart-tip" id="chart-tip" hidden></div></div>
+      <div class="legend" id="chart-legend"></div>
+      <div class="stat-row" id="gauge-stats"></div>
+    </div>
+  </section>
+
+  <!-- MODEL -->
+  <section id="tab-model" class="tab-content" role="tabpanel">
+    <h2 class="section-title reveal">🧠 Model performance <small>test set Aug 10–29</small></h2>
+    <div class="metric-grid" id="metric-grid"></div>
+
+    <div class="grid2" style="margin-top:14px">
+      <div class="card reveal">
+        <h3 class="card-title">🔬 Prediction approach</h3>
+        <div id="feat-list"></div>
+        <dl class="kv" id="model-kv"></dl>
+      </div>
+      <div class="card reveal">
+        <h3 class="card-title">🧹 Data quality issues found</h3>
+        <div id="quality-list"></div>
+      </div>
+    </div>
+
+    <div class="card reveal" style="margin-top:14px">
+      <h3 class="card-title">🧮 Village prioritisation formula</h3>
+      <div class="formula">Combined = 0.60 × Risk + 0.40 × Priority</div>
+      <div class="split"><i class="a"></i><i class="b"></i></div>
+      <div class="split-l"><span>🌊 60% flood risk</span><span>🤝 40% need &amp; access</span></div>
+      <ul class="plist">
+        <li><span class="e">👥</span><span><b>Population + 2× vulnerable</b> (max 35 pts) — who needs help</span></li>
+        <li><span class="e">🏠</span><span><b>Shelter capacity gap</b> (max 25 pts) — can the shelter absorb everyone?</span></li>
+        <li><span class="e">🛣️</span><span><b>Road access</b> — cut off = 30, seasonal = 15, all-weather = 0</span></li>
+        <li><span class="e">📵</span><span><b>Phone coverage gap</b> (max 10 pts) — how reachable they are</span></li>
+      </ul>
+      <p class="sm muted" style="margin-top:14px">This makes cut-off villages with many vulnerable people rise to the top even when raw flood risk is equal.</p>
+    </div>
+  </section>
+
+  <!-- ARCHITECTURE -->
+  <section id="tab-architecture" class="tab-content" role="tabpanel">
+    <h2 class="section-title reveal">🏗️ System architecture <small>production design</small></h2>
+    <div class="arch-wrap reveal" id="arch-wrap"></div>
+    <div class="card reveal">
+      <h3 class="card-title">🛡️ Scalability &amp; reliability</h3>
+      <div class="scale-grid" id="scale-grid"></div>
+    </div>
+  </section>
+
+  <!-- RESPONSIBLE AI -->
+  <section id="tab-responsible" class="tab-content" role="tabpanel">
+    <h2 class="section-title reveal">⚖️ Responsible AI commitments</h2>
+    <div class="rai-grid" id="rai-grid"></div>
+  </section>
+
+</main>
+
+<!-- ALERT BOTTOM SHEET -->
+<div class="backdrop" id="backdrop"></div>
+<aside class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title">
+  <div class="sheet-drag" id="sheet-drag">
+    <div class="grab"></div>
+    <div class="sheet-head" id="sheet-head"></div>
+  </div>
+  <div class="sheet-body" id="sheet-body"></div>
+</aside>
+
+<script>
+// ── DATA (unchanged from the original prototype) ───────────────────────────
+const DATA = {"villages": [{"id": "V12", "name": "Kharkhauda", "gauge": "G06", "station": "Chandan Ford", "population": 980, "vulnerable": 350, "shelter": "Panchayat Bhawan", "shelter_cap": 110, "dist_km": 6.0, "road": "Cut off in floods", "channel": "Loudspeaker", "no_phone_pct": 56, "river_level": 2.09, "danger_level": 4.4, "level_gap": -2.31, "rainfall3d": 6.8, "soil": 45.2, "rise": -0.05, "risk": 32.5, "priority": 52.2, "combined": 40.4, "alert": {"level": "MODERATE", "what": "River at Chandan Ford gauge is at 2.09m, 2.31m below danger (4.4m). Risk level: MODERATE. Flood crossing expected within 24\u201348 hours.", "why": "Population: 980 (350 vulnerable). Shelter gap: 870 people. Road access: Cut off in floods.", "action": "IMMEDIATE evacuation. Roads will flood \u2014 move to Panchayat Bhawan (6.0km) NOW before water rises.", "deliver": "Alert via: Loudspeaker. \u26a0\ufe0f 56% have no phone \u2014 loudspeaker essential."}, "flood_predicted": false}, {"id": "V05", "name": "Mahigaon", "gauge": "G03", "station": "Mahi Crossing", "population": 3100, "vulnerable": 890, "shelter": "Govt College Ground Shelter", "shelter_cap": 600, "dist_km": 2.1, "road": "Seasonal", "channel": "SMS", "no_phone_pct": 22, "river_level": 2.68, "danger_level": 5.0, "level_gap": -2.32, "rainfall3d": 1.6, "soil": 42.5, "rise": -0.15, "risk": 21.1, "priority": 66.0, "combined": 39.1, "alert": {"level": "LOW", "what": "River at Mahi Crossing gauge is at 2.68m, 2.32m below danger (5.0m). Risk level: LOW. Flood crossing expected within 24\u201348 hours.", "why": "Population: 3,100 (890 vulnerable). Shelter gap: 2,500 people. Road access: Seasonal.", "action": "Begin staged evacuation to Govt College Ground Shelter (2.1km). Prioritise 890 vulnerable residents first.", "deliver": "Alert via: SMS."}, "flood_predicted": false}, {"id": "V11", "name": "Chandanpur", "gauge": "G06", "station": "Chandan Ford", "population": 1420, "vulnerable": 450, "shelter": "Govt Primary School", "shelter_cap": 220, "dist_km": 2.4, "road": "Seasonal", "channel": "SMS", "no_phone_pct": 27, "river_level": 2.09, "danger_level": 4.4, "level_gap": -2.31, "rainfall3d": 6.8, "soil": 45.2, "rise": -0.05, "risk": 32.5, "priority": 40.8, "combined": 35.8, "alert": {"level": "MODERATE", "what": "River at Chandan Ford gauge is at 2.09m, 2.31m below danger (4.4m). Risk level: MODERATE. Flood crossing expected within 24\u201348 hours.", "why": "Population: 1,420 (450 vulnerable). Shelter gap: 1,200 people. Road access: Seasonal.", "action": "Begin staged evacuation to Govt Primary School (2.4km). Prioritise 450 vulnerable residents first.", "deliver": "Alert via: SMS."}, "flood_predicted": false}, {"id": "V02", "name": "Keshavpur", "gauge": "G01", "station": "Karnali Bend", "population": 940, "vulnerable": 310, "shelter": "Community Hall", "shelter_cap": 150, "dist_km": 3.8, "road": "Seasonal", "channel": "Loudspeaker", "no_phone_pct": 41, "river_level": 2.21, "danger_level": 4.5, "level_gap": -2.29, "rainfall3d": 8.7, "soil": 43.8, "rise": -0.03, "risk": 36.6, "priority": 34.4, "combined": 35.7, "alert": {"level": "MODERATE", "what": "River at Karnali Bend gauge is at 2.21m, 2.29m below danger (4.5m). Risk level: MODERATE. Flood crossing expected within 24\u201348 hours.", "why": "Population: 940 (310 vulnerable). Shelter gap: 790 people. Road access: Seasonal.", "action": "Begin staged evacuation to Community Hall (3.8km). Prioritise 310 vulnerable residents first.", "deliver": "Alert via: Loudspeaker. \u26a0\ufe0f 41% have no phone \u2014 loudspeaker essential."}, "flood_predicted": false}, {"id": "V06", "name": "Barauli", "gauge": "G03", "station": "Mahi Crossing", "population": 1280, "vulnerable": 430, "shelter": "Temple Community Hall", "shelter_cap": 200, "dist_km": 5.2, "road": "Cut off in floods", "channel": "Loudspeaker", "no_phone_pct": 47, "river_level": 2.68, "danger_level": 5.0, "level_gap": -2.32, "rainfall3d": 1.6, "soil": 42.5, "rise": -0.15, "risk": 21.1, "priority": 55.7, "combined": 34.9, "alert": {"level": "LOW", "what": "River at Mahi Crossing gauge is at 2.68m, 2.32m below danger (5.0m). Risk level: LOW. Flood crossing expected within 24\u201348 hours.", "why": "Population: 1,280 (430 vulnerable). Shelter gap: 1,080 people. Road access: Cut off in floods.", "action": "IMMEDIATE evacuation. Roads will flood \u2014 move to Temple Community Hall (5.2km) NOW before water rises.", "deliver": "Alert via: Loudspeaker. \u26a0\ufe0f 47% have no phone \u2014 loudspeaker essential."}, "flood_predicted": false}, {"id": "V01", "name": "Rampura", "gauge": "G01", "station": "Karnali Bend", "population": 1850, "vulnerable": 520, "shelter": "Govt Primary School", "shelter_cap": 300, "dist_km": 1.2, "road": "All-weather", "channel": "SMS", "no_phone_pct": 18, "river_level": 2.21, "danger_level": 4.5, "level_gap": -2.29, "rainfall3d": 8.7, "soil": 43.8, "rise": -0.03, "risk": 36.6, "priority": 31.3, "combined": 34.5, "alert": {"level": "MODERATE", "what": "River at Karnali Bend gauge is at 2.21m, 2.29m below danger (4.5m). Risk level: MODERATE. Flood crossing expected within 24\u201348 hours.", "why": "Population: 1,850 (520 vulnerable). Shelter gap: 1,550 people. Road access: All-weather.", "action": "Issue warning alert. Prepare evacuation to Govt Primary School (1.2km). Monitor every 2h.", "deliver": "Alert via: SMS."}, "flood_predicted": false}, {"id": "V04", "name": "Dhanipur", "gauge": "G02", "station": "Sundar Ghat", "population": 720, "vulnerable": 260, "shelter": "Panchayat Bhawan", "shelter_cap": 120, "dist_km": 4.5, "road": "Cut off in floods", "channel": "Loudspeaker", "no_phone_pct": 52, "river_level": 1.94, "danger_level": 4.2, "level_gap": -2.26, "rainfall3d": 5.1, "soil": 40.3, "rise": -0.01, "risk": 22.7, "priority": 47.1, "combined": 32.5, "alert": {"level": "LOW", "what": "River at Sundar Ghat gauge is at 1.94m, 2.26m below danger (4.2m). Risk level: LOW. Flood crossing expected within 24\u201348 hours.", "why": "Population: 720 (260 vulnerable). Shelter gap: 600 people. Road access: Cut off in floods.", "action": "IMMEDIATE evacuation. Roads will flood \u2014 move to Panchayat Bhawan (4.5km) NOW before water rises.", "deliver": "Alert via: Loudspeaker. \u26a0\ufe0f 52% have no phone \u2014 loudspeaker essential."}, "flood_predicted": false}, {"id": "V03", "name": "Lakshmipur", "gauge": "G02", "station": "Sundar Ghat", "population": 2300, "vulnerable": 640, "shelter": "Higher Secondary School", "shelter_cap": 450, "dist_km": 0.9, "road": "All-weather", "channel": "SMS", "no_phone_pct": 12, "river_level": 1.94, "danger_level": 4.2, "level_gap": -2.26, "rainfall3d": 5.1, "soil": 40.3, "rise": -0.01, "risk": 22.7, "priority": 37.2, "combined": 28.5, "alert": {"level": "LOW", "what": "River at Sundar Ghat gauge is at 1.94m, 2.26m below danger (4.2m). Risk level: LOW. Flood crossing expected within 24\u201348 hours.", "why": "Population: 2,300 (640 vulnerable). Shelter gap: 1,850 people. Road access: All-weather.", "action": "Issue warning alert. Prepare evacuation to Higher Secondary School (0.9km). Monitor every 2h.", "deliver": "Alert via: SMS."}, "flood_predicted": false}, {"id": "V08", "name": "Siddhpur", "gauge": "G04", "station": "Tara Barrage", "population": 860, "vulnerable": 290, "shelter": "Community Hall", "shelter_cap": 100, "dist_km": 3.3, "road": "Seasonal", "channel": "WhatsApp group", "no_phone_pct": 35, "river_level": 2.23, "danger_level": 4.6, "level_gap": -2.37, "rainfall3d": 0.3, "soil": 42.1, "rise": -0.07, "risk": 20.1, "priority": 32.9, "combined": 25.2, "alert": {"level": "LOW", "what": "River at Tara Barrage gauge is at 2.23m, 2.37m below danger (4.6m). Risk level: LOW. Flood crossing expected within 24\u201348 hours.", "why": "Population: 860 (290 vulnerable). Shelter gap: 760 people. Road access: Seasonal.", "action": "Begin staged evacuation to Community Hall (3.3km). Prioritise 290 vulnerable residents first.", "deliver": "Alert via: WhatsApp group."}, "flood_predicted": false}, {"id": "V09", "name": "Nilganj", "gauge": "G05", "station": "Nila Mouth", "population": 2050, "vulnerable": 610, "shelter": "Govt High School", "shelter_cap": 350, "dist_km": 1.1, "road": "All-weather", "channel": "SMS", "no_phone_pct": 15, "river_level": 1.66, "danger_level": 3.9, "level_gap": -2.24, "rainfall3d": 5.4, "soil": 49.6, "rise": -0.01, "risk": 17.4, "priority": 34.3, "combined": 24.2, "alert": {"level": "LOW", "what": "River at Nila Mouth gauge is at 1.66m, 2.24m below danger (3.9m). Risk level: LOW. Flood crossing expected within 24\u201348 hours.", "why": "Population: 2,050 (610 vulnerable). Shelter gap: 1,700 people. Road access: All-weather.", "action": "Issue warning alert. Prepare evacuation to Govt High School (1.1km). Monitor every 2h.", "deliver": "Alert via: SMS."}, "flood_predicted": false}, {"id": "V07", "name": "Taranagar", "gauge": "G04", "station": "Tara Barrage", "population": 1600, "vulnerable": 480, "shelter": "Govt Middle School", "shelter_cap": 250, "dist_km": 1.6, "road": "All-weather", "channel": "SMS", "no_phone_pct": 20, "river_level": 2.23, "danger_level": 4.6, "level_gap": -2.37, "rainfall3d": 0.3, "soil": 42.1, "rise": -0.07, "risk": 20.1, "priority": 27.8, "combined": 23.2, "alert": {"level": "LOW", "what": "River at Tara Barrage gauge is at 2.23m, 2.37m below danger (4.6m). Risk level: LOW. Flood crossing expected within 24\u201348 hours.", "why": "Population: 1,600 (480 vulnerable). Shelter gap: 1,350 people. Road access: All-weather.", "action": "Issue warning alert. Prepare evacuation to Govt Middle School (1.6km). Monitor every 2h.", "deliver": "Alert via: SMS."}, "flood_predicted": false}, {"id": "V10", "name": "Fatehpur Kalan", "gauge": "G05", "station": "Nila Mouth", "population": 690, "vulnerable": 240, "shelter": "Anganwadi Centre", "shelter_cap": 60, "dist_km": 2.9, "road": "Seasonal", "channel": "Loudspeaker", "no_phone_pct": 44, "river_level": 1.66, "danger_level": 3.9, "level_gap": -2.24, "rainfall3d": 5.4, "soil": 49.6, "rise": -0.01, "risk": 17.4, "priority": 31.2, "combined": 22.9, "alert": {"level": "LOW", "what": "River at Nila Mouth gauge is at 1.66m, 2.24m below danger (3.9m). Risk level: LOW. Flood crossing expected within 24\u201348 hours.", "why": "Population: 690 (240 vulnerable). Shelter gap: 630 people. Road access: Seasonal.", "action": "Begin staged evacuation to Anganwadi Centre (2.9km). Prioritise 240 vulnerable residents first.", "deliver": "Alert via: Loudspeaker. \u26a0\ufe0f 44% have no phone \u2014 loudspeaker essential."}, "flood_predicted": false}], "gauges": [{"id": "G01", "name": "Karnali Bend", "risk": 36.6, "river": 2.21, "danger": 4.5, "warning": 3.8, "predicted": false, "rainfall": 8.7, "soil": 43.8, "rise": -0.03}, {"id": "G02", "name": "Sundar Ghat", "risk": 22.7, "river": 1.94, "danger": 4.2, "warning": 3.5, "predicted": false, "rainfall": 5.1, "soil": 40.3, "rise": -0.01}, {"id": "G03", "name": "Mahi Crossing", "risk": 21.1, "river": 2.68, "danger": 5.0, "warning": 4.3, "predicted": false, "rainfall": 1.6, "soil": 42.5, "rise": -0.15}, {"id": "G04", "name": "Tara Barrage", "risk": 20.1, "river": 2.23, "danger": 4.6, "warning": 3.9, "predicted": false, "rainfall": 0.3, "soil": 42.1, "rise": -0.07}, {"id": "G05", "name": "Nila Mouth", "risk": 17.4, "river": 1.66, "danger": 3.9, "warning": 3.2, "predicted": false, "rainfall": 5.4, "soil": 49.6, "rise": -0.01}, {"id": "G06", "name": "Chandan Ford", "risk": 32.5, "river": 2.09, "danger": 4.4, "warning": 3.7, "predicted": false, "rainfall": 6.8, "soil": 45.2, "rise": -0.05}], "metrics": {"tp": 6, "fp": 11, "fn": 1, "tn": 102, "precision": 0.35, "recall": 0.86, "f1": 0.5, "threshold": 45}, "quality": {"duplicates_removed": 3, "river_level_outlier": 1, "soil_outlier": 1, "negative_rainfall": 1, "missing_rainfall": 6, "missing_river": 3}, "chart": {"G01": {"dates": ["Jul 01", "Jul 02", "Jul 03", "Jul 04", "Jul 05", "Jul 06", "Jul 07", "Jul 08", "Jul 09", "Jul 10", "Jul 11", "Jul 12", "Jul 13", "Jul 14", "Jul 15", "Jul 16", "Jul 17", "Jul 18", "Jul 19", "Jul 20", "Jul 21", "Jul 22", "Jul 23", "Jul 24", "Jul 25", "Jul 26", "Jul 27", "Jul 28", "Jul 29", "Jul 30", "Jul 31", "Aug 01", "Aug 02", "Aug 03", "Aug 04", "Aug 05", "Aug 06", "Aug 07", "Aug 08", "Aug 09", "Aug 10", "Aug 11", "Aug 12", "Aug 13", "Aug 14", "Aug 15", "Aug 16", "Aug 17", "Aug 18", "Aug 19", "Aug 20", "Aug 21", "Aug 22", "Aug 23", "Aug 24", "Aug 25", "Aug 26", "Aug 27", "Aug 28", "Aug 29"], "levels": [2.08, 2.07, 2.11, 2.11, 2.16, 2.16, 2.27, 2.26, 2.47, 3.45, 4.2, 3.79, 3.11, 2.6, 2.32, 2.25, 2.23, 2.16, 2.14, 2.12, 2.17, 2.5, 3.58, 4.63, 4.64, 3.86, 3.05, 2.63, 2.34, 2.24, 2.18, 2.19, 2.27, 2.16, 2.15, 2.18, 2.09, 2.36, 3.33, 4.49, 4.57, 3.92, 3.13, 2.65, 2.36, 2.21, 2.17, 2.16, 2.16, 2.19, 2.19, 2.47, 3.3, 4.03, 3.89, 3.18, 2.72, 2.41, 2.24, 2.21], "rainfall": [0.0, 0.0, 0.0, 0.3, 2.6, 6.5, 3.9, 0.0, 59.7, 75.8, 31.8, 0.7, 0.0, 0.0, 4.8, 0.0, 0.0, 0.0, 0.6, 2.1, 7.2, 60.0, 80.2, 52.9, 18.7, 0.2, 0.0, 0.2, 4.3, 3.0, 0.0, 6.1, 0.3, 0.0, 0.0, 0.0, 0.0, 48.8, 87.2, 54.4, 22.5, 0.0, 0.0, 0.0, 0.0, 0.0, 3.1, 0.0, 0.0, 7.6, 0.0, 57.8, 62.7, 43.9, 0.0, 4.4, 0.0, 1.5, 0.0, 7.2], "risk": [23.3, 22.1, 22.4, 26.6, 27.6, 38.4, 27.2, 22.3, 82.9, 100.0, 45.8, -41.4, -42.3, -22.1, 9.8, 18.4, 25.9, 14.5, 24.4, 23.2, 40.7, 93.3, 100.0, 84.2, 5.5, -55.9, -40.3, -13.4, 12.4, 21.0, 19.4, 37.0, 22.3, 18.1, 24.2, 17.7, 21.4, 83.5, 100.0, 83.5, 16.5, -49.8, -40.8, -12.4, 4.6, 15.8, 25.6, 18.9, 21.0, 39.9, 19.3, 89.0, 100.0, 88.3, -31.8, -32.3, -16.3, 2.2, 11.6, 36.6], "flood": ["N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "Y", "Y", "Y", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "Y", "Y", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N"], "danger": 4.5, "warning": 3.8}, "G02": {"dates": ["Jul 01", "Jul 02", "Jul 03", "Jul 04", "Jul 05", "Jul 06", "Jul 07", "Jul 08", "Jul 09", "Jul 10", "Jul 11", "Jul 12", "Jul 13", "Jul 14", "Jul 15", "Jul 16", "Jul 17", "Jul 18", "Jul 19", "Jul 20", "Jul 21", "Jul 22", "Jul 23", "Jul 24", "Jul 25", "Jul 26", "Jul 27", "Jul 28", "Jul 29", "Jul 30", "Jul 31", "Aug 01", "Aug 02", "Aug 03", "Aug 04", "Aug 05", "Aug 06", "Aug 07", "Aug 08", "Aug 09", "Aug 10", "Aug 11", "Aug 12", "Aug 13", "Aug 14", "Aug 15", "Aug 16", "Aug 17", "Aug 18", "Aug 19", "Aug 20", "Aug 21", "Aug 22", "Aug 23", "Aug 24", "Aug 25", "Aug 26", "Aug 27", "Aug 28", "Aug 29"], "levels": [1.8, 1.83, 1.8, 1.83, 1.88, 1.88, 1.85, 1.87, 2.16, 3.04, 3.79, 3.6, 2.82, 2.31, 2.04, 1.97, 1.9, 1.97, 1.94, 1.93, 1.88, 2.09, 3.04, 4.15, 4.07, 3.37, 2.66, 2.23, 2.1, 1.96, 1.87, 1.85, 1.85, 1.83, 1.79, 1.82, 1.81, 2.06, 3.16, 4.33, 4.09, 3.42, 2.72, 2.27, 2.06, 1.96, 1.86, 1.81, 1.83, 1.81, 1.8, 1.97, 2.56, 3.02, 2.95, 2.55, 2.17, 2.01, 1.95, 1.94], "rainfall": [0.0, 2.2, 0.5, 0.3, 7.4, 0.0, 0.0, 0.0, 62.9, 80.1, 48.1, 0.0, 0.0, 0.0, 4.3, 0.0, 7.4, 0.2, 3.4, 0.0, 0.0, 49.4, 103.9, 46.3, 18.9, 0.0, 0.0, 5.1, 1.7, 0.0, 0.5, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 61.5, 112.7, 44.8, 22.4, 0.0, 2.5, 0.0, 0.0, 0.0, 0.0, 6.3, 0.0, 0.0, 0.0, 44.7, 52.6, 35.0, 4.8, 0.0, 0.0, 3.0, 2.1, 0.0], "risk": [21.9, 25.2, 20.6, 23.6, 35.4, 18.5, 16.9, 22.0, 86.6, 100.0, 74.6, -35.2, -38.5, -22.6, 7.9, 11.7, 36.0, 29.9, 21.0, 20.4, 18.7, 79.2, 100.0, 63.5, 3.0, -48.9, -30.7, 0.5, 12.6, 11.6, 15.6, 22.0, 19.9, 22.7, 19.5, 22.0, 20.8, 83.0, 100.0, 50.3, -1.3, -46.9, -29.9, -9.5, 11.3, 12.2, 12.6, 29.2, 19.4, 23.0, 21.0, 74.3, 100.0, 79.4, -0.7, -20.0, -5.1, 11.1, 22.0, 22.7], "flood": ["N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "Y", "Y", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N"], "danger": 4.2, "warning": 3.5}, "G03": {"dates": ["Jul 01", "Jul 02", "Jul 03", "Jul 04", "Jul 05", "Jul 06", "Jul 07", "Jul 08", "Jul 09", "Jul 10", "Jul 11", "Jul 12", "Jul 13", "Jul 14", "Jul 15", "Jul 16", "Jul 17", "Jul 18", "Jul 19", "Jul 20", "Jul 21", "Jul 22", "Jul 23", "Jul 24", "Jul 25", "Jul 26", "Jul 27", "Jul 28", "Jul 29", "Jul 30", "Jul 31", "Aug 01", "Aug 02", "Aug 03", "Aug 04", "Aug 05", "Aug 06", "Aug 07", "Aug 08", "Aug 09", "Aug 10", "Aug 11", "Aug 12", "Aug 13", "Aug 14", "Aug 15", "Aug 16", "Aug 17", "Aug 18", "Aug 19", "Aug 20", "Aug 21", "Aug 22", "Aug 23", "Aug 24", "Aug 25", "Aug 26", "Aug 27", "Aug 28", "Aug 29"], "levels": [2.61, 2.62, 2.57, 2.65, 2.67, 2.64, 2.59, 2.56, 2.88, 3.7, 4.27, 4.24, 3.72, 3.29, 3.01, 2.87, 2.79, 2.77, 2.8, 2.7, 2.62, 2.98, 4.41, 5.48, 5.29, 4.45, 3.62, 3.14, 2.85, 2.75, 2.77, 2.78, 2.72, 2.67, 2.64, 2.61, 2.6, 3.19, 5.32, 6.84, 6.89, 5.56, 4.23, 3.36, 2.97, 2.78, 2.69, 2.67, 2.66, 2.62, 2.63, 3.04, 4.19, 5.09, 4.87, 3.96, 3.34, 3.09, 2.83, 2.68], "rainfall": [0.0, 0.0, 0.2, 4.1, 0.0, 0.0, 0.0, 0.0, 47.8, 49.7, 39.9, 7.4, 0.0, 2.4, 0.0, 4.9, 0.0, 6.4, 0.0, 0.0, 0.0, 65.9, 78.6, 42.0, 16.1, 0.0, 0.0, 0.0, 0.0, 2.1, 7.7, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 94.4, 102.7, 71.5, 27.4, 0.0, 0.0, 0.2, 0.9, 0.0, 0.0, 0.8, 0.0, 0.0, 0.0, 61.9, 62.4, 44.1, 0.0, 2.1, 5.0, 0.0, 0.0, 1.6], "risk": [25.8, 21.1, 25.3, 38.2, 18.1, 21.2, 18.6, 25.5, 87.9, 100.0, 93.2, -16.7, -33.7, -7.3, -2.5, 28.3, 16.6, 32.3, 18.6, 17.6, 16.9, 96.4, 100.0, 59.2, -12.6, -71.5, -43.9, -12.2, 6.1, 24.7, 44.8, 20.7, 19.6, 16.9, 26.7, 24.0, 20.9, 100.0, 100.0, 100.0, -22.8, -126.5, -87.4, -42.8, 0.2, 13.0, 16.1, 28.0, 24.1, 21.3, 29.1, 99.6, 100.0, 81.3, -50.5, -57.4, -12.5, -3.7, 6.4, 21.1], "flood": ["N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "Y", "Y", "Y", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "Y", "Y", "Y", "Y", "Y", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "Y", "Y", "N", "N", "N", "N", "N", "N", "N"], "danger": 5.0, "warning": 4.3}, "G04": {"dates": ["Jul 01", "Jul 02", "Jul 03", "Jul 04", "Jul 05", "Jul 06", "Jul 07", "Jul 08", "Jul 09", "Jul 10", "Jul 11", "Jul 12", "Jul 13", "Jul 14", "Jul 15", "Jul 16", "Jul 17", "Jul 18", "Jul 19", "Jul 20", "Jul 21", "Jul 22", "Jul 23", "Jul 24", "Jul 25", "Jul 26", "Jul 27", "Jul 28", "Jul 29", "Jul 30", "Jul 31", "Aug 01", "Aug 02", "Aug 03", "Aug 04", "Aug 05", "Aug 06", "Aug 07", "Aug 08", "Aug 09", "Aug 10", "Aug 11", "Aug 12", "Aug 13", "Aug 14", "Aug 15", "Aug 16", "Aug 17", "Aug 18", "Aug 19", "Aug 20", "Aug 21", "Aug 22", "Aug 23", "Aug 24", "Aug 25", "Aug 26", "Aug 27", "Aug 28", "Aug 29"], "levels": [2.23, 2.27, 2.3, 2.23, 2.26, 2.27, 2.29, 2.33, 2.61, 3.61, 4.49, 4.09, 3.37, 2.81, 2.55, 2.39, 2.28, 2.32, 2.3, 2.27, 2.32, 2.63, 3.61, 4.44, 4.52, 3.89, 3.23, 2.77, 2.5, 2.5, 2.5, 2.5, 2.5, 2.3, 2.22, 2.2, 2.21, 2.71, 4.31, 5.72, 5.51, 4.41, 3.4, 2.82, 2.46, 2.36, 2.28, 2.29, 2.33, 2.3, 2.32, 2.47, 3.25, 4.31, 4.22, 3.45, 2.82, 2.52, 2.3, 2.23], "rainfall": [0.0, 4.7, 0.0, 0.0, 7.7, 0.0, 6.0, 0.3, 52.9, 0.2, 29.6, 1.3, 0.0, 0.3, 0.0, 0.0, 3.1, 4.4, 0.0, 4.8, 0.0, 62.2, 63.5, 52.5, 20.7, 5.7, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 6.1, 0.2, 0.0, 0.0, 6.2, 77.7, 117.2, 53.2, 22.9, 0.0, 0.0, 0.0, 0.0, 0.0, 3.6, 7.3, 0.0, 3.0, 0.0, 38.2, 79.4, 43.3, 7.6, 0.0, 0.0, 0.3, 0.0, 0.0], "risk": [24.3, 39.9, 20.0, 17.3, 39.8, 16.7, 35.9, 21.3, 87.5, 100.0, 36.9, -56.2, -38.0, -24.2, 5.3, 8.6, 24.9, 30.7, 20.0, 32.1, 23.7, 92.3, 100.0, 92.7, 14.5, -35.4, -34.3, -16.7, 5.7, 24.8, 27.2, 28.4, 41.1, 1.6, 13.3, 20.8, 42.9, 100.0, 100.0, 51.2, -17.8, -89.9, -56.3, -21.9, 0.5, 18.2, 23.7, 37.8, 24.4, 27.9, 17.7, 74.8, 100.0, 78.0, -20.7, -52.7, -31.3, -1.2, 8.4, 20.1], "flood": ["N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "Y", "Y", "Y", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N"], "danger": 4.6, "warning": 3.9}, "G05": {"dates": ["Jul 01", "Jul 02", "Jul 03", "Jul 04", "Jul 05", "Jul 06", "Jul 07", "Jul 08", "Jul 09", "Jul 10", "Jul 11", "Jul 12", "Jul 13", "Jul 14", "Jul 15", "Jul 16", "Jul 17", "Jul 18", "Jul 19", "Jul 20", "Jul 21", "Jul 22", "Jul 23", "Jul 24", "Jul 25", "Jul 26", "Jul 27", "Jul 28", "Jul 29", "Jul 30", "Jul 31", "Aug 01", "Aug 02", "Aug 03", "Aug 04", "Aug 05", "Aug 06", "Aug 07", "Aug 08", "Aug 09", "Aug 10", "Aug 11", "Aug 12", "Aug 13", "Aug 14", "Aug 15", "Aug 16", "Aug 17", "Aug 18", "Aug 19", "Aug 20", "Aug 21", "Aug 22", "Aug 23", "Aug 24", "Aug 25", "Aug 26", "Aug 27", "Aug 28", "Aug 29"], "levels": [1.47, 1.51, 1.55, 1.55, 1.63, 1.57, 1.56, 1.49, 1.71, 2.38, 2.91, 2.76, 2.29, 1.9, 1.73, 1.73, 1.74, 1.69, 1.67, 1.61, 1.55, 1.83, 2.85, 3.54, 3.6, 3.04, 2.49, 2.13, 1.85, 1.67, 1.64, 1.62, 1.6, 1.67, 1.61, 1.54, 1.47, 1.83, 3.28, 4.25, 3.96, 3.15, 2.45, 2.02, 1.8, 1.7, 1.66, 1.54, 1.57, 1.54, 1.54, 1.93, 3.16, 4.05, 3.45, 2.66, 2.17, 1.84, 1.67, 1.66], "rainfall": [0.0, 0.0, 0.0, 7.7, 0.0, 0.0, 0.0, 0.0, 52.1, 57.3, 33.2, 6.1, 0.0, 0.0, 7.9, 7.8, 7.0, 2.0, 0.0, 0.0, 0.0, 70.5, 65.8, 55.8, 19.0, 6.4, 6.9, 0.0, 0.0, 2.7, 0.0, 2.3, 6.6, 0.0, 0.0, 0.0, 0.0, 83.9, 101.9, 41.7, 20.4, 0.6, 0.0, 4.3, 4.0, 0.0, 0.0, 0.0, 0.0, 0.0, 4.4, 79.5, 92.2, 27.4, 0.0, 7.5, 0.2, 0.0, 5.4, 0.0], "risk": [19.8, 20.4, 18.3, 36.0, 20.7, 11.4, 18.2, 11.3, 76.4, 100.0, 64.7, -9.5, -29.4, -15.6, 23.1, 27.6, 29.3, 11.3, 16.3, 17.3, 11.9, 87.0, 100.0, 97.1, 14.4, -22.5, -12.7, -14.2, 4.0, 10.2, 20.9, 23.2, 31.3, 21.5, 11.3, 12.4, 11.1, 94.9, 100.0, 49.8, -11.9, -54.4, -38.8, -0.9, 12.5, 11.5, 12.6, 15.5, 20.3, 14.4, 28.0, 98.6, 100.0, 30.6, -53.2, -29.5, -22.4, -3.4, 19.6, 17.4], "flood": ["N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "Y", "Y", "Y", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "Y", "Y", "N", "N", "N", "N", "N", "N", "N"], "danger": 3.9, "warning": 3.2}, "G06": {"dates": ["Jul 01", "Jul 02", "Jul 03", "Jul 04", "Jul 05", "Jul 06", "Jul 07", "Jul 08", "Jul 09", "Jul 10", "Jul 11", "Jul 12", "Jul 13", "Jul 14", "Jul 15", "Jul 16", "Jul 17", "Jul 18", "Jul 19", "Jul 20", "Jul 21", "Jul 22", "Jul 23", "Jul 24", "Jul 25", "Jul 26", "Jul 27", "Jul 28", "Jul 29", "Jul 30", "Jul 31", "Aug 01", "Aug 02", "Aug 03", "Aug 04", "Aug 05", "Aug 06", "Aug 07", "Aug 08", "Aug 09", "Aug 10", "Aug 11", "Aug 12", "Aug 13", "Aug 14", "Aug 15", "Aug 16", "Aug 17", "Aug 18", "Aug 19", "Aug 20", "Aug 21", "Aug 22", "Aug 23", "Aug 24", "Aug 25", "Aug 26", "Aug 27", "Aug 28", "Aug 29"], "levels": [2.03, 2.06, 2.07, 2.05, 1.99, 2.03, 2.03, 2.01, 2.32, 3.49, 4.54, 4.19, 3.35, 2.76, 2.43, 2.27, 2.15, 2.08, 2.02, 2.06, 2.02, 2.27, 3.29, 4.66, 4.99, 4.15, 3.19, 2.63, 2.31, 2.18, 2.15, 2.08, 2.13, 2.12, 2.05, 2.08, 2.04, 2.41, 3.52, 4.88, 4.46, 4.03, 3.14, 2.64, 2.34, 2.19, 2.09, 2.07, 2.03, 2.07, 2.15, 2.45, 3.6, 4.81, 4.37, 3.38, 2.65, 2.27, 2.14, 2.09], "rainfall": [0.0, 0.0, 0.5, 0.0, 0.0, 5.1, 0.0, 0.0, 57.8, 84.3, 34.4, 6.9, 0.0, 0.0, 5.3, 0.0, 0.0, 0.0, 4.2, 0.0, 0.0, 51.1, 75.5, 65.7, 21.0, 0.0, 0.0, 4.4, 0.0, 1.8, 0.0, 3.0, 4.8, 0.0, 1.4, 0.5, 0.0, 59.7, 81.4, 60.5, 16.2, 0.0, 7.1, 0.0, 0.0, 0.0, 2.9, 0.0, 0.0, 7.6, 0.0, 54.1, 88.6, 39.6, 0.0, 0.0, 0.0, 0.0, 0.0, 6.8], "risk": [23.4, 24.1, 23.5, 18.9, 13.4, 37.2, 18.4, 19.6, 87.5, 100.0, 45.6, -43.9, -54.9, -27.5, 11.9, 1.9, 17.8, 13.8, 26.2, 24.7, 14.6, 82.6, 100.0, 100.0, 17.3, -73.6, -58.8, -9.2, -6.3, 23.7, 16.5, 26.3, 35.9, 17.3, 19.0, 24.6, 19.1, 93.6, 100.0, 100.0, -49.3, -39.9, -38.2, -19.9, -0.5, 13.0, 25.3, 18.8, 19.4, 41.9, 24.7, 89.9, 100.0, 57.4, -66.6, -66.2, -37.5, -2.9, 15.7, 32.5], "flood": ["N", "N", "N", "N", "N", "N", "N", "N", "Y", "Y", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "Y", "Y", "Y", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "Y", "Y", "Y", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "N", "Y", "Y", "N", "N", "N", "N", "N", "N", "N"], "danger": 4.4, "warning": 3.7}}};
+
+const {villages, gauges, metrics, quality, chart} = DATA;
+
+// ── HELPERS ────────────────────────────────────────────────────────────────
+const $  = (s,r=document)=>r.querySelector(s);
+const $$ = (s,r=document)=>[...r.querySelectorAll(s)];
+const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const fmt = n => Number(n).toLocaleString('en-IN');
+
+const LVL = {
+  LOW:{cls:'low',emoji:'🟢'}, MODERATE:{cls:'moderate',emoji:'🟡'},
+  HIGH:{cls:'high',emoji:'🟠'}, CRITICAL:{cls:'critical',emoji:'🔴'}
+};
+const CLS_EMOJI = {low:'🟢',moderate:'🟡',high:'🟠',critical:'🔴'};
+const ROAD = {
+  'Cut off in floods':{cls:'road-cutoff',emoji:'🚫',short:'Cut off'},
+  'Seasonal':{cls:'road-seasonal',emoji:'⚠️',short:'Seasonal'},
+  'All-weather':{cls:'road-all',emoji:'✅',short:'All-weather'}
+};
+const riskCls   = s => s>=70?'critical':s>=45?'high':s>=25?'moderate':'low';
+const riskBadge = s => {const c=riskCls(s);return `<span class="badge badge-${c}">${CLS_EMOJI[c]} ${c.toUpperCase()}</span>`};
+const levelBadge= l => {const m=LVL[l];return `<span class="badge badge-${m.cls}">${m.emoji} ${l}</span>`};
+const chEmoji   = c => /loud/i.test(c)?'📢':/whats/i.test(c)?'💬':'📱';
+const shelterGap= v => Math.max(v.population - v.shelter_cap, 0);
+
+// ── COUNT-UP ───────────────────────────────────────────────────────────────
+function renderCount(el, v){
+  const dec = +(el.dataset.dec||0);
+  const body = el.dataset.loc==='1' ? Math.round(v).toLocaleString('en-IN') : v.toFixed(dec);
+  el.textContent = body + (el.dataset.suf||'') + (el.dataset.ext||'');
+}
+function setStat(el, n, o={}){
+  el.dataset.count = n;
+  if(o.dec) el.dataset.dec = o.dec;
+  if(o.suf) el.dataset.suf = o.suf;
+  if(o.ext) el.dataset.ext = o.ext;
+  if(o.loc) el.dataset.loc = '1';
+  renderCount(el, n);
+}
+function countUp(el){
+  const to = parseFloat(el.dataset.count);
+  if(reduceMotion || !to){ renderCount(el,to||0); return; }
+  const dur = 1000, t0 = performance.now();
+  (function step(t){
+    const p = Math.min((t-t0)/dur,1), e = 1-Math.pow(1-p,3);
+    renderCount(el, to*e);
+    if(p<1) requestAnimationFrame(step);
+  })(t0);
+}
+
+// ── NAV ────────────────────────────────────────────────────────────────────
+const tabBtns = $$('.tab-btn');
+const ind = $('#nav-ind');
+function moveInd(btn){
+  ind.style.setProperty('--ix', btn.offsetLeft+'px');
+  ind.style.setProperty('--iw', btn.offsetWidth+'px');
+}
+function showTab(id){
+  const btn = tabBtns.find(b=>b.dataset.tab===id);
+  $$('.tab-content').forEach(t=>t.classList.toggle('active', t.id==='tab-'+id));
+  tabBtns.forEach(b=>{const on=b===btn;b.classList.toggle('active',on);b.setAttribute('aria-selected',on)});
+  moveInd(btn);
+  window.scrollTo(0,0);
+  const sec = $('#tab-'+id);
+  $$('[data-count]',sec).forEach(countUp);
+  if(id==='gauges') renderChart();
+}
+tabBtns.forEach(b=>b.addEventListener('click',()=>showTab(b.dataset.tab)));
+function syncInd(){ moveInd($('.tab-btn.active')); }
+addEventListener('resize',syncInd);
+addEventListener('orientationchange',syncInd);
+
+// ── DASHBOARD ──────────────────────────────────────────────────────────────
+function buildHero(){
+  const flagged = villages.filter(v=>v.alert.level==='HIGH'||v.alert.level==='CRITICAL');
+  const popAtRisk = flagged.reduce((a,v)=>a+v.population,0);
+  const maxG = gauges.reduce((a,g)=>g.risk>a.risk?g:a);
+  setStat($('#sb-gauges'), gauges.length);
+  setStat($('#sb-at-risk'), flagged.length);
+  setStat($('#sb-pop-risk'), popAtRisk, {loc:1});
+  setStat($('#sb-max-risk'), maxG.risk, {suf:'%', ext:` (${maxG.id})`});
+  const sb = $('#sb-status');
+  if(gauges.some(g=>g.risk>=45)){ sb.textContent='⚠️ MONITORING'; sb.className='badge badge-high'; }
+  else { sb.textContent='✅ ALL CLEAR'; sb.className='badge badge-low'; }
+}
+
+const R = 26, CIRC = 2*Math.PI*R;
+function gaugeCard(g,i){
+  const cls = riskCls(g.risk);
+  const levelPct = Math.min(g.river/g.danger*100,100);
+  const off = CIRC*(1-Math.min(Math.max(g.risk,0),100)/100);
+  return `<button class="gauge-card reveal" style="--i:${i+2}" data-gid="${g.id}" aria-label="${g.name} gauge, risk ${g.risk.toFixed(0)}">
+    <span class="ring-wrap">
+      <svg class="ring" viewBox="0 0 64 64" style="--circ:${CIRC.toFixed(1)};--off:${off.toFixed(1)}" aria-hidden="true">
+        <circle class="ring-bg" cx="32" cy="32" r="${R}"/>
+        <circle class="ring-fg ring-${cls}" cx="32" cy="32" r="${R}" transform="rotate(-90 32 32)"/>
+      </svg>
+      <span class="ring-txt">${g.risk.toFixed(0)}<small>risk</small></span>
+    </span>
+    <span class="gc-main">
+      <span class="gc-top">
+        <span><span class="gauge-name">${g.name}</span><span class="gauge-id">${g.id}</span></span>
+        ${riskBadge(g.risk)}
+      </span>
+      <span class="gc-level"><span>🌊 <b>${g.river}m</b></span><span>⛔ danger ${g.danger}m</span></span>
+      <span class="bar-wrap" style="display:block"><span class="bar-fill bar-${cls}" style="display:block;width:${levelPct}%"></span></span>
+      <span class="chips">
+        <span class="chip">🌧️ ${g.rainfall}mm</span>
+        <span class="chip">${g.rise>=0?'📈 +':'📉 '}${g.rise}m/d</span>
+        <span class="chip">🌱 ${g.soil}%</span>
+      </span>
+    </span>
+  </button>`;
+}
+
+function topVillageCard(v,i){
+  const m = LVL[v.alert.level], gap = shelterGap(v), road = ROAD[v.road];
+  return `<article class="card tv reveal" style="--i:${i+4};--lvl:var(--${m.cls})">
+    <div class="tv-head">
+      <div>
+        <div class="eyebrow">${['🔴','🟠','🟡'][i]} Rank ${i+1} priority</div>
+        <div class="tv-name">${v.name}</div>
+        <div class="muted sm">${v.station} · ${v.gauge}</div>
+      </div>
+      <div class="tv-right">${levelBadge(v.alert.level)}<div class="muted sm">Score <b class="mono" style="color:var(--text)">${v.combined.toFixed(1)}</b></div></div>
+    </div>
+    <div class="mini-grid">
+      <div class="mini"><div class="mini-l">👥 People</div><div class="mini-v">${fmt(v.population)}</div><div class="mini-s" style="color:var(--moderate)">${fmt(v.vulnerable)} vulnerable</div></div>
+      <div class="mini"><div class="mini-l">🏠 Shelter</div><div class="mini-v" style="color:${gap>0?'var(--high)':'var(--low)'}">${gap>0?'+'+fmt(gap):'✓ OK'}</div><div class="mini-s">${gap>0?'over capacity':'adequate'}</div></div>
+      <div class="mini"><div class="mini-l">🛣️ Road</div><div class="mini-v ${road.cls}">${road.emoji} ${road.short}</div><div class="mini-s">${v.no_phone_pct}% no phone</div></div>
+    </div>
+    <p class="shelter-line muted sm">⛺ ${v.shelter} · ${v.dist_km} km · ${chEmoji(v.channel)} ${v.channel}</p>
+    <div class="action-box"><b>📋 Recommended action</b><br>${v.alert.action}<div class="muted sm" style="margin-top:6px">${v.alert.deliver}</div></div>
+    <button class="btn" data-vid="${v.id}" style="margin-top:12px;width:100%">🔔 View full alert</button>
+  </article>`;
+}
+
+function buildDashboard(){
+  $('#gauge-grid').innerHTML = gauges.map(gaugeCard).join('');
+  $('#top-village-cards').innerHTML = villages.slice(0,3).map(topVillageCard).join('');
+}
+
+// ── VILLAGES ───────────────────────────────────────────────────────────────
+function villageCard(v,i){
+  const m = LVL[v.alert.level], gap = shelterGap(v), road = ROAD[v.road], rc = riskCls(v.risk);
+  return `<div class="card vcard reveal" role="button" tabindex="0" data-vid="${v.id}" style="--i:${Math.min(i,8)+2};--lvl:var(--${m.cls})">
+    <div class="vc-rank ${i<3?'top':''}">${i+1}</div>
+    <div class="vc-main">
+      <div class="vc-top">
+        <div><div class="vname">${v.name}</div><div class="muted sm">${v.station} · ${v.gauge}</div></div>
+        ${levelBadge(v.alert.level)}
+      </div>
+      <div class="scores">
+        <div><div class="sc-l">Risk</div><div class="sc-v">${v.risk.toFixed(0)}</div><div class="bar-wrap thin"><div class="bar-fill bar-${rc}" style="width:${Math.min(v.risk,100)}%"></div></div></div>
+        <div><div class="sc-l">Priority</div><div class="sc-v">${v.priority.toFixed(0)}</div></div>
+        <div><div class="sc-l">Combined</div><div class="sc-v accent">${v.combined.toFixed(1)}</div></div>
+      </div>
+      <div class="chips">
+        <span class="chip">👥 ${fmt(v.population)}</span>
+        <span class="chip warn">🧒🧓 ${fmt(v.vulnerable)}</span>
+        <span class="chip ${gap>500?'bad':gap>0?'warn':'good'}">🏠 ${gap>0?'+'+fmt(gap):'✓'}</span>
+        <span class="chip ${road.cls}">${road.emoji} ${road.short}</span>
+        <span class="chip">${chEmoji(v.channel)} ${v.channel}</span>
+      </div>
+    </div>
+  </div>`;
+}
+function buildVillages(){
+  $('#vlist').innerHTML = villages.map(villageCard).join('');
+  $('#village-tbody').innerHTML = villages.map((v,i)=>{
+    const gap = shelterGap(v), road = ROAD[v.road], rc = riskCls(v.risk);
+    return `<tr data-vid="${v.id}">
+      <td class="rank">${['🔴','🟠','🟡'][i]||''} ${i+1}</td>
+      <td style="font-weight:600">${v.name}</td>
+      <td class="muted">${v.gauge}</td>
+      <td class="score-cell">${v.risk.toFixed(0)}<div class="bar-wrap thin" style="width:80px"><div class="bar-fill bar-${rc}" style="width:${Math.min(v.risk,100)}%"></div></div></td>
+      <td class="score-cell">${v.priority.toFixed(0)}</td>
+      <td class="score-cell" style="color:var(--accent)">${v.combined.toFixed(1)}</td>
+      <td>${fmt(v.population)}</td>
+      <td style="color:var(--moderate)">${fmt(v.vulnerable)}</td>
+      <td style="color:${gap>500?'var(--high)':gap>0?'var(--moderate)':'var(--low)'}">${gap>0?'+'+fmt(gap):'✓'}</td>
+      <td class="${road.cls}">${road.emoji} ${road.short}</td>
+      <td class="muted">${chEmoji(v.channel)} ${v.channel}</td>
+      <td>${levelBadge(v.alert.level)}</td>
+      <td><button class="btn" data-vid="${v.id}" style="min-height:36px;padding:0 12px;font-size:.78rem">View</button></td>
+    </tr>`;
+  }).join('');
+}
+
+// ── ALERT SHEET ────────────────────────────────────────────────────────────
+const sheet = $('#sheet'), backdrop = $('#backdrop');
+let lastFocus = null;
+function openSheet(id, trigger){
+  const v = villages.find(x=>x.id===id); if(!v) return;
+  lastFocus = trigger || document.activeElement;
+  const m = LVL[v.alert.level];
+  $('#sheet-head').innerHTML = `<div>
+      <span class="badge badge-${m.cls}">${m.emoji} ${v.alert.level} ALERT</span>
+      <div class="sheet-title" id="sheet-title">${v.name}</div>
+      <div class="muted sm">${v.station} · ${v.gauge}</div>
+    </div>
+    <button class="close-btn" id="sheet-close" aria-label="Close alert">✕</button>`;
+  $('#sheet-body').innerHTML = `
+    <div class="sec" style="--i:0"><div class="scores" style="margin-top:0">
+      <div><div class="sc-l">Risk</div><div class="sc-v">${v.risk.toFixed(0)}</div></div>
+      <div><div class="sc-l">Priority</div><div class="sc-v">${v.priority.toFixed(0)}</div></div>
+      <div><div class="sc-l">Combined</div><div class="sc-v accent">${v.combined.toFixed(1)}</div></div>
+    </div></div>
+    <div class="sec" style="--i:1"><div class="sec-label">📍 What &amp; when</div><div class="sec-text">${v.alert.what}</div></div>
+    <div class="sec" style="--i:2"><div class="sec-label">🎯 Why this priority</div><div class="sec-text">${v.alert.why}</div></div>
+    <div class="sec" style="--i:3"><div class="sec-label">⚡ Recommended action</div><div class="action-box" style="margin-top:0">${v.alert.action}</div></div>
+    <div class="sec" style="--i:4"><div class="sec-label">${chEmoji(v.channel)} Delivery</div><div class="sec-text muted">${v.alert.deliver}</div></div>`;
+  $('#sheet-body').scrollTop = 0;
+  backdrop.classList.add('open');
+  sheet.classList.add('open');
+  document.documentElement.classList.add('lock');
+  setTimeout(()=>$('#sheet-close')&&$('#sheet-close').focus({preventScroll:true}),60);
+}
+function closeSheet(){
+  if(!sheet.classList.contains('open')) return;
+  sheet.classList.remove('open');
+  backdrop.classList.remove('open');
+  document.documentElement.classList.remove('lock');
+  if(lastFocus && lastFocus.focus) lastFocus.focus({preventScroll:true});
+}
+backdrop.addEventListener('click',closeSheet);
+document.addEventListener('click',e=>{
+  if(e.target.closest('#sheet-close')) return closeSheet();
+  const g = e.target.closest('[data-gid]');
+  if(g){ selectedGauge = g.dataset.gid; buildGaugeSelector(); return showTab('gauges'); }
+  const t = e.target.closest('[data-vid]');
+  if(t) openSheet(t.dataset.vid, t);
+});
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape') closeSheet();
+  if((e.key==='Enter'||e.key===' ') && e.target.matches('[role=button][data-vid]')){
+    e.preventDefault(); openSheet(e.target.dataset.vid, e.target);
+  }
+});
+// swipe down to dismiss
+(function(){
+  const handle = $('#sheet-drag'); let y0=null, dy=0;
+  handle.addEventListener('touchstart',e=>{y0=e.touches[0].clientY;dy=0;sheet.classList.add('dragging')},{passive:true});
+  handle.addEventListener('touchmove',e=>{
+    if(y0===null) return;
+    dy = Math.max(0,e.touches[0].clientY-y0);
+    sheet.style.transform = `translateY(${dy}px)`;
+  },{passive:true});
+  handle.addEventListener('touchend',()=>{
+    if(y0===null) return;
+    sheet.classList.remove('dragging'); sheet.style.transform='';
+    if(dy>90) closeSheet();
+    y0=null;
+  });
+})();
+
+// ── GAUGE HISTORY ──────────────────────────────────────────────────────────
+let histChart=null, selectedGauge='G01', chartType='level';
+const CHART_TYPES = ['level','rainfall','risk'];
+
+function buildGaugeSelector(){
+  $('#gauge-selector').innerHTML = gauges.map(g=>`<button class="gchip ${g.id===selectedGauge?'selected':''}" data-sel="${g.id}">
+    <span class="gname">${CLS_EMOJI[riskCls(g.risk)]} ${g.name}</span><span class="gid">${g.id} · ${g.river}m</span></button>`).join('');
+}
+$('#gauge-selector').addEventListener('click',e=>{
+  const b = e.target.closest('[data-sel]'); if(!b) return;
+  selectedGauge = b.dataset.sel;
+  $$('.gchip').forEach(c=>c.classList.toggle('selected',c===b));
+  b.scrollIntoView({inline:'center',block:'nearest',behavior:reduceMotion?'auto':'smooth'});
+  renderChart();
+});
+$('#seg').addEventListener('click',e=>{
+  const b = e.target.closest('[data-type]'); if(!b) return;
+  chartType = b.dataset.type;
+  $$('#seg button').forEach(x=>x.classList.toggle('active',x===b));
+  $('#seg').style.setProperty('--si', CHART_TYPES.indexOf(chartType));
+  renderChart();
+});
+
+function niceScale(max){
+  const raw = max/4, pw = Math.pow(10,Math.floor(Math.log10(raw))), f = raw/pw;
+  const step = (f<=1?1:f<=2?2:f<=5?5:10)*pw;
+  return {step, max:Math.ceil(max/step)*step};
+}
+const CHART_C = {blue:'#4d8dff',amber:'#f59e0b',red:'#ef4444',purple:'#7a7cff'};
+
+function renderChart(){
+  const d = chart[selectedGauge], g = gauges.find(x=>x.id===selectedGauge);
+  if(!d||!g) return;
+  $('#gauge-stats').innerHTML = [
+    ['🌊 Now',g.river+' m','var(--text)'],
+    ['🟡 Warning',g.warning+' m','var(--moderate)'],
+    ['⛔ Danger',g.danger+' m','var(--high)'],
+    ['⚠️ Risk',g.risk.toFixed(0)+' / 100','var(--'+riskCls(g.risk)+')']
+  ].map(s=>`<div class="stat"><div class="stat-l">${s[0]}</div><div class="stat-v" style="color:${s[2]}">${s[1]}</div></div>`).join('');
+  drawChart(d,g);
+}
+
+function drawChart(d,g){
+  const host = $('#chart-host'), tip = $('#chart-tip');
+  const W = host.clientWidth, H = host.clientHeight;
+  if(!W||!H) return;
+  const n = d.dates.length, narrow = W<480;
+  const m = {l:narrow?36:44, r:narrow?10:16, t:14, b:26};
+  const pw = W-m.l-m.r, ph = H-m.t-m.b;
+  const isBar = chartType==='rainfall';
+  const cl = v => Math.max(0,Math.min(100,v));
+
+  let vals, sc, unit, lab, color, dec = 2;
+  if(chartType==='level'){ vals=d.levels; sc=niceScale(Math.max(...vals,d.danger)*1.05); unit=' m'; lab='River level'; color=CHART_C.blue; }
+  else if(isBar){ vals=d.rainfall.map(v=>Math.max(v,0)); sc=niceScale(Math.max(...vals,10)*1.05); unit=' mm'; lab='Rainfall (24h)'; color=CHART_C.purple; dec=1; }
+  else { vals=d.risk.map(cl); sc={step:25,max:100}; unit=''; lab='Risk score'; color=CHART_C.amber; dec=0; }
+
+  const xs = i => isBar ? m.l+(i+.5)*pw/n : m.l+i*pw/(n-1);
+  const ys = v => m.t+ph*(1-v/sc.max);
+  const fmtTick = v => sc.step<1 ? v.toFixed(1) : String(+v.toFixed(1));
+
+  let o = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="${lab} history for ${g.name}">
+    <defs><linearGradient id="ch-grad" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${color}" stop-opacity=".38"/><stop offset="1" stop-color="${color}" stop-opacity="0"/></linearGradient></defs>`;
+
+  for(let t=0;t<=sc.max+1e-9;t+=sc.step){
+    const y = ys(t);
+    o += `<line class="ch-grid" x1="${m.l}" x2="${W-m.r}" y1="${y}" y2="${y}"/><text class="ch-tick" x="${m.l-6}" y="${y+3.5}" text-anchor="end">${fmtTick(t)}</text>`;
+  }
+  const cnt = narrow?5:8;
+  for(let k=0;k<cnt;k++){
+    const i = Math.round(k*(n-1)/(cnt-1));
+    o += `<text class="ch-tick" x="${xs(i)}" y="${H-6}" text-anchor="${k===0?'start':k===cnt-1?'end':'middle'}">${d.dates[i]}</text>`;
+  }
+
+  const hline = (v,c,txt) => `<line x1="${m.l}" x2="${W-m.r}" y1="${ys(v)}" y2="${ys(v)}" stroke="${c}" stroke-width="1.5" stroke-dasharray="6 4" opacity=".85"/>`
+    + `<text class="ch-tick" x="${W-m.r-2}" y="${ys(v)-4}" text-anchor="end" style="fill:${c}">${txt}</text>`;
+
+  if(isBar){
+    const bw = Math.max(2,pw/n*.68);
+    vals.forEach((v,i)=>{
+      if(v<=0) return;
+      const y = ys(v);
+      o += `<rect class="ch-bar" style="--i:${i}" x="${xs(i)-bw/2}" y="${y}" width="${bw}" height="${m.t+ph-y}" rx="2" fill="${color}" fill-opacity=".8"/>`;
+    });
+  } else {
+    if(chartType==='level'){ o += hline(d.warning,CHART_C.amber,'Warning '+d.warning) + hline(d.danger,CHART_C.red,'Danger '+d.danger); }
+    else { o += hline(45,CHART_C.red,'Alert 45'); }
+    const pts = vals.map((v,i)=>`${xs(i).toFixed(1)} ${ys(v).toFixed(1)}`);
+    const line = 'M'+pts.join(' L');
+    o += `<path class="ch-area" d="${line} L${xs(n-1).toFixed(1)} ${m.t+ph} L${xs(0).toFixed(1)} ${m.t+ph} Z" fill="url(#ch-grad)"/>`;
+    o += `<path class="ch-line" pathLength="1" d="${line}" stroke="${color}"/>`;
+    if(chartType==='level'){
+      d.flood.forEach((f,i)=>{ if(f==='Y') o += `<circle class="ch-flood" cx="${xs(i)}" cy="${ys(vals[i])}" r="4.5" fill="${CHART_C.red}" stroke="#0b0f19" stroke-width="1.5"/>`; });
+    }
+  }
+  o += `<line id="ch-guide" y1="${m.t}" y2="${m.t+ph}" stroke="#8a9bb3" stroke-width="1" stroke-dasharray="3 3" visibility="hidden"/>`
+     + `<circle id="ch-dot" r="5" fill="${color}" stroke="#fff" stroke-width="2" visibility="hidden"/></svg>`;
+  host.innerHTML = o;
+  tip.hidden = true;
+
+  const L = (cls,txt,st) => `<span class="lg" style="color:${st}"><i class="${cls}"></i><span style="color:var(--muted)">${txt}</span></span>`;
+  $('#chart-legend').innerHTML = chartType==='level'
+    ? L('',lab,CHART_C.blue)+L('dash','Warning',CHART_C.amber)+L('dash','Danger',CHART_C.red)+L('dot','Flood within 48h',CHART_C.red)
+    : isBar ? L('sq','Rainfall (24h)',CHART_C.purple)
+    : L('',lab,CHART_C.amber)+L('dash','Alert threshold (45)',CHART_C.red);
+
+  const guide = $('#ch-guide'), dot = $('#ch-dot');
+  const show = e => {
+    const x = e.clientX - host.getBoundingClientRect().left;
+    let i = isBar ? Math.floor((x-m.l)/(pw/n)) : Math.round((x-m.l)/(pw/(n-1)));
+    i = Math.max(0,Math.min(n-1,i));
+    const cx = xs(i);
+    guide.setAttribute('x1',cx); guide.setAttribute('x2',cx); guide.setAttribute('visibility','visible');
+    if(isBar){ dot.setAttribute('visibility','hidden'); }
+    else { dot.setAttribute('cx',cx); dot.setAttribute('cy',ys(vals[i])); dot.setAttribute('visibility','visible'); }
+    tip.innerHTML = `<b>${d.dates[i]}</b><br>${lab}: <span class="mono">${vals[i].toFixed(dec)}${unit}</span>`
+      + (chartType==='level'?`<br>🌧️ <span class="mono">${d.rainfall[i]} mm</span>`:'')
+      + (d.flood[i]==='Y'?'<br>🌊 <b style="color:var(--high)">Flood within 48h</b>':'');
+    tip.hidden = false;
+    const tw = tip.offsetWidth;
+    tip.style.left = Math.max(0,Math.min(W-tw, cx > W/2 ? cx-tw-12 : cx+12))+'px';
+  };
+  host.onpointerdown = host.onpointermove = show;
+  host.onpointerleave = e => { if(e.pointerType==='mouse'){ tip.hidden=true; guide.setAttribute('visibility','hidden'); dot.setAttribute('visibility','hidden'); } };
+}
+let _chartRT;
+addEventListener('resize',()=>{
+  if(!$('#tab-gauges').classList.contains('active')) return;
+  clearTimeout(_chartRT); _chartRT = setTimeout(renderChart,150);
+});
+
+// ── MODEL ──────────────────────────────────────────────────────────────────
+function buildModel(){
+  const {tp,fp,fn,tn,precision,recall,f1,threshold} = metrics;
+  const items = [
+    {e:'🎯',n:Math.round(recall*100),suf:'%',label:'Recall',color:'var(--low)',note:`Catches ${tp} of ${tp+fn} floods`},
+    {e:'🔎',n:Math.round(precision*100),suf:'%',label:'Precision',color:'var(--moderate)',note:'Officer reviews flagged alerts'},
+    {e:'⚖️',n:f1,dec:2,label:'F1 score',color:'var(--accent)',note:'Balance metric'},
+    {e:'🎚️',n:threshold,label:'Threshold',color:'var(--accent2)',note:`Risk ≥ ${threshold} = flood predicted`},
+    {e:'✅',n:tp,label:'True positives',color:'var(--low)',note:'Floods correctly caught'},
+    {e:'🔔',n:fp,label:'False positives',color:'var(--moderate)',note:'False alarms the officer filters'},
+    {e:'❌',n:fn,label:'False negatives',color:'var(--high)',note:`Missed floods (only ${fn})`},
+    {e:'🌤️',n:tn,label:'True negatives',color:'var(--muted)',note:'Correct “no flood” calls'}
+  ];
+  $('#metric-grid').innerHTML = items.map((m,i)=>`<div class="metric-card reveal" style="--i:${i+1}">
+    <span class="metric-emoji">${m.e}</span>
+    <div class="metric-num" style="color:${m.color}" id="mn${i}"></div>
+    <div class="metric-label">${m.label}</div><div class="metric-note">${m.note}</div></div>`).join('');
+  items.forEach((m,i)=>setStat($('#mn'+i), m.n, {dec:m.dec||0, suf:m.suf||''}));
+
+  const feats = [
+    ['🌊','River level % of danger',40,'Proximity to the danger threshold'],
+    ['📈','River rise rate (1-day)',20,'How fast the river is rising'],
+    ['⬆️','Upstream level rise',20,'Leading indicator (~1 day lag)'],
+    ['🌧️','3-day cumulative rainfall',10,'Sustained moisture input'],
+    ['🌱','Soil moisture %',10,'Saturation reduces absorption']
+  ];
+  $('#feat-list').innerHTML = feats.map((f,i)=>`<div class="feat">
+    <div class="feat-top"><span>${f[0]} ${f[1]}</span><span class="pts">${f[2]} pts</span></div>
+    <div class="feat-desc">${f[3]}</div>
+    <div class="bar-wrap"><div class="bar-fill" style="width:${f[2]/40*100}%;background:linear-gradient(90deg,var(--accent),var(--teal));--i:${i+2}"></div></div></div>`).join('');
+  $('#model-kv').innerHTML = `
+    <dt>🧩 Method</dt><dd>Weighted multi-signal risk score (rule-based, no black box)</dd>
+    <dt>🚦 Threshold</dt><dd>Score ≥ ${threshold} → flood predicted</dd>
+    <dt>✂️ Split</dt><dd>Train Jul 1–Aug 9 · Test Aug 10–29</dd>
+    <dt>💡 Insight</dt><dd>Recall (86%) is prioritised over precision (35%): a missed flood costs lives, while a false alarm can be filtered by the duty officer.</dd>`;
+
+  const rows = [
+    ['🗑️','3 duplicate rows found','Dropped earlier duplicate (kept latest per gauge-date)','Fixed'],
+    ['📟','River level = 99.9 m (G05, Aug 1)','Sensor malfunction — replaced with interpolated value','Fixed'],
+    ['🌱','Soil moisture = 140% (G05, Aug 21)','Impossible reading — replaced with interpolated value','Fixed'],
+    ['🌧️','Negative rainfall: −4.2 mm (G04, Jul 13)','Physical impossibility — set to 0','Fixed'],
+    ['🕳️','6 missing rainfall (24h) values','Filled with column median (0.3 mm)','Fixed'],
+    ['📉','3 missing river level values','Linear interpolation within gauge group','Fixed'],
+    ['📌','Stuck sensor readings (G01, G04 — 4 consecutive same values)','Flagged but retained — could be stable low-flow periods','Flagged'],
+    ['⚖️','Class imbalance: 35 floods vs 328 non-flood (9.6% positive)','Used recall-weighted threshold; never use accuracy alone','Noted']
+  ];
+  $('#quality-list').innerHTML = rows.map(r=>`<div class="q-item"><div class="q-ico">${r[0]}</div><div>
+    <div class="q-issue">${r[1]}</div><div class="q-fix-t">${r[2]}</div>
+    <span class="q-status ${r[3]==='Fixed'?'q-fix':'q-flag'}">${r[3]==='Fixed'?'✓ Fixed':'⚠️ '+r[3]}</span></div></div>`).join('');
+}
+
+// ── ARCHITECTURE ───────────────────────────────────────────────────────────
+const ARCH = [
+  {title:'📥 Ingest &amp; Store',items:[
+    ['📡','IoT Gauge Sensors','RS-485 / LoRaWAN sensors push readings every 15 min to an MQTT broker'],
+    ['🌧️','Rainfall API Feed','IMD / OpenWeather ingested hourly via REST; upstream level from API'],
+    ['🗄️','Time-Series DB','InfluxDB for sensor streams; PostgreSQL for village &amp; shelter registry'],
+    ['🔄','Data Quality Pipeline','Apache Airflow DAG: outlier clamp, interpolation, duplicate drop — runs every 30 min']]},
+  {title:'⚙️ Process &amp; Predict',items:[
+    ['🧮','Feature Engine','Computes rolling stats (3-day rain, rise rate, upstream lag) on each new reading batch'],
+    ['🤖','Risk Scoring Model','Weighted rule model (explainable, auditable). Retrained monthly with new labelled data. Runs every 30 min'],
+    ['🗺️','Village Prioritiser','Joins gauge risk with village vulnerability index; outputs a ranked list per alert trigger'],
+    ['📊','Alert Engine','Generates plain-language alerts in 3 languages; selects delivery channel per village preference']]},
+  {title:'📤 Deliver &amp; Oversee',items:[
+    ['👮','Officer Dashboard','District officer reviews the ranked alert list before any alert is dispatched (human-in-the-loop gate)'],
+    ['📱','SMS / WhatsApp','Twilio / Gupshup gateway; phone-coverage fallback routes to the loudspeaker coordinator'],
+    ['📢','Loudspeaker Network','Panchayat coordinator receives WhatsApp + voice call to activate the village PA system'],
+    ['🔒','Security &amp; Privacy','Village vulnerability data: role-based access, AES-256 at rest, TLS in transit. Officers only see aggregates']]}
+];
+const SCALE = [
+  ['⚡','Scale to 600 gauges','Horizontally scalable MQTT broker (EMQX) + InfluxDB cluster. Alert engine runs as stateless Lambda-style workers.'],
+  ['📴','Sensor failure fallback','If a reading is missing for &gt;2h, the dashboard shows ⚠️ SENSOR OFFLINE. Last known value is shown with a staleness flag. Officer is paged.'],
+  ['🔋','Network outage','Edge nodes store 24h of readings locally and sync when connectivity restores. SMS alerts use a low-bandwidth USSD fallback.']
+];
+function buildArch(){
+  const arrow = '<div class="arch-arrow" aria-hidden="true"><span class="ay">⬇️</span><span class="ax">➡️</span></div>';
+  $('#arch-wrap').innerHTML = ARCH.map(c=>`<div class="arch-col"><div class="arch-col-title">${c.title}</div>${
+    c.items.map(i=>`<div class="arch-item"><span class="arch-icon">${i[0]}</span><div><div class="arch-item-title">${i[1]}</div><div class="arch-item-desc">${i[2]}</div></div></div>`).join('')
+  }</div>`).join(arrow);
+  $('#scale-grid').innerHTML = SCALE.map(s=>`<div class="scale-card"><span class="e">${s[0]}</span><h4>${s[1]}</h4><p>${s[2]}</p></div>`).join('');
+}
+
+// ── RESPONSIBLE AI ─────────────────────────────────────────────────────────
+const RAI = [
+  ['🎯','Missed floods vs false alarms','We set our threshold at 45 (not 60+) to maximise recall (86%). A missed flood can cost lives; a false alarm causes inconvenience. We accept ~3 false alarms per true flood on the test set. The duty officer reviews every alert before dispatch — their judgment is the final filter. Alert fatigue is mitigated by explaining each trigger in plain language.'],
+  ['🤝','Equity of reach','Our priority formula explicitly rewards villages with high phone-less household rates and cut-off roads. A village of 720 with 52% no-phone access and flooded roads scores higher than a larger village with all-weather roads and full phone coverage. Loudspeaker deployment is flagged as mandatory for any village above the 40% no-phone threshold.'],
+  ['🔒','Data privacy','Village vulnerability data (population breakdowns, shelter capacity) is sensitive. Access is role-gated: field officers see only their assigned villages; district officers see aggregated metrics. Data is encrypted at rest (AES-256) and in transit (TLS 1.3). No personal or household-level data is stored — only village aggregates.'],
+  ['👮','Human oversight &amp; fallback','No alert is dispatched without officer approval — the system recommends, humans decide. If the data feed fails for &gt;2h, the dashboard shows a SENSOR OFFLINE banner and pages the on-call officer. If the model output looks anomalous (score &gt;90 with no rainfall), a “Review Recommended” flag is shown. Manual override is always available.'],
+  ['📖','Explainability','Every risk score is decomposed into its five components (level %, rise rate, upstream, rainfall, soil). Every village priority score shows the three dominant factors. Officers can trace exactly why a village is ranked first — no opaque black box. This builds trust and supports accountability.'],
+  ['🔄','Model drift &amp; feedback','Ground-truth flood labels are collected after each event. The model is re-evaluated monthly. If recall drops below 80%, thresholds are adjusted and officers are notified. Community feedback (did the alert arrive in time? was it in the right language?) is collected after each event to improve the delivery pipeline.']
+];
+function buildRAI(){
+  const wide = matchMedia('(min-width:900px)').matches;
+  $('#rai-grid').innerHTML = RAI.map((r,i)=>{
+    const open = wide || i===0;
+    return `<div class="rai-card reveal ${open?'open':''}" style="--i:${i+1}">
+      <button class="rai-btn" aria-expanded="${open}"><span class="rai-icon">${r[0]}</span><span class="rai-title">${r[1]}</span><span class="rai-chev">▾</span></button>
+      <div class="rai-panel"><div><p class="rai-text">${r[2]}</p></div></div></div>`;
+  }).join('');
+  $('#rai-grid').addEventListener('click',e=>{
+    const b = e.target.closest('.rai-btn'); if(!b) return;
+    const card = b.parentElement, o = card.classList.toggle('open');
+    b.setAttribute('aria-expanded', o);
+  });
+}
+
+// ── INIT ───────────────────────────────────────────────────────────────────
+buildHero(); buildDashboard(); buildVillages(); buildGaugeSelector();
+buildModel(); buildArch(); buildRAI();
+
+// stagger index for any .reveal that doesn't have one
+$$('.tab-content').forEach(sec=>{
+  let n=0;
+  $$('.reveal',sec).forEach(el=>{
+    if(!el.style.getPropertyValue('--i')) el.style.setProperty('--i',Math.min(n,9));
+    n++;
+  });
+});
+
+// place nav indicator without animating from zero
+ind.style.transition='none'; syncInd(); void ind.offsetWidth; ind.style.transition='';
+if(document.fonts&&document.fonts.ready) document.fonts.ready.then(syncInd);
+
+$$('[data-count]',$('#tab-dashboard')).forEach(countUp);
+</script>
+</body>
+</html>
